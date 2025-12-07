@@ -1,9 +1,0 @@
-name = "speako-worker"
-main = "build/worker/shim.mjs"
-compatibility_date = "2024-01-01"
-
-[build]
-command = "cargo install -q worker-build && worker-build --release" 
-
-[vars]
-# Add environment variables here if needed

@@ -3,7 +3,6 @@ import { useEffect, useRef } from "preact/hooks";
 import { Fragment } from "preact";
 import { env } from "@xenova/transformers";
 import { LocalTranscriber } from "../logic/local-transcriber";
-import { RemoteTranscriber } from "../logic/remote-transcriber";
 // In real app, we'd import the WASM module dynamically or via the plugin
 import * as wasm from "../../../../crates/client/pkg/speako_client";
 
@@ -12,7 +11,6 @@ import { GrammarChecker, GrammarIssue } from "../logic/grammar-checker";
 
 // Transcribers can be singletons for this session manager
 const localTranscriber = new LocalTranscriber();
-const remoteTranscriber = new RemoteTranscriber();
 export function SessionManager() {
   const view = useSignal<"idle" | "recording" | "processing" | "results">("idle");
   const transcript = useSignal<TranscriptionResult | null>(null);
@@ -70,17 +68,12 @@ export function SessionManager() {
       statusMsg.value = "Starting...";
       startTime.current = Date.now();
       
+      
       // Select transcriber based on config
-      // Default to Local as it's the core feature. Remote is fallback.
-      if (env.allowLocalModels) {
-         console.log("[SessionManager] Using LocalTranscriber.");
-         localTranscriber.onProgress = (msg) => { statusMsg.value = msg; };
-         await localTranscriber.start();
-      } else {
-         console.log("[SessionManager] Using RemoteTranscriber (env.allowLocalModels=false).");
-         remoteTranscriber.onProgress = (msg) => { statusMsg.value = msg; };
-         await remoteTranscriber.start();
-      }
+      // Default to Local as it's the core feature.
+      console.log("[SessionManager] Using LocalTranscriber.");
+      localTranscriber.onProgress = (msg) => { statusMsg.value = msg; };
+      await localTranscriber.start();
       
       statusMsg.value = "Recording... (Speak now)";
     } catch (e) {
@@ -99,13 +92,8 @@ export function SessionManager() {
     // Stop recording and get text
     let result: TranscriptionResult = { text: "", words: [] };
     try {
-      if (env.allowLocalModels) {
-        console.log("[SessionManager] Stopping LocalTranscriber...");
-        result = await localTranscriber.stop();
-      } else {
-        console.log("[SessionManager] Stopping RemoteTranscriber...");
-        result = await remoteTranscriber.stop();
-      }
+      console.log("[SessionManager] Stopping LocalTranscriber...");
+      result = await localTranscriber.stop();
       console.log(`[SessionManager] Transcription received: "${result.text.substring(0, 50)}..."`);
     } catch (e) {
       console.error("[SessionManager] Transcription failed:", e);

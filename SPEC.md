@@ -28,7 +28,7 @@
 1. **Cheap to operate**
 
    * STT and scoring should run locally when possible.
-   * Remote AI calls are optional / capped / testable separately.
+
 2. **Good-enough approximations**
 
    * “Exam-like” bands using public descriptors.
@@ -85,7 +85,7 @@
    * Produces band scores + feedback:
 
      * **Heuristic only** in offline/local mode.
-     * **Heuristic + AI** in hybrid mode (Workers AI/LLM).
+
 6. User sees:
 
    * Transcript
@@ -107,12 +107,6 @@
   * `vite-plugin-pwa` for robust offline support.
   * Lazy-loading for heavy assets (STT models, Wasm metrics).
 
-* **Backend (optional / thin):**
-
-  * Rust Cloudflare Worker:
-    * `/api/transcribe-and-score` – audio → transcript + AI-assisted scoring.
-    * Serves as a fallback for low-end devices or initial load.
-
 ### 4.2 Client modules
 
 1. **Audio layer (`audio.ts`)**
@@ -125,17 +119,14 @@
    * **Interface:** `ITranscriber`
    * **Implementations:**
      * `LocalTranscriber`: Uses **transformers.js** (whisper-tiny-en, quantized ~30MB). Lazy-loaded.
-     * `RemoteTranscriber`: Sends audio blob to Cloudflare Worker.
      * `FakeTranscriber`: Returns static text for tests.
    * **Strategy:**
      * Try `Local` if WebGPU/Wasm capable & cached.
-     * Fallback to `Remote` if local fails or downloading.
 
 3. **Metrics & Analysis (Shared Rust Core)**
 
    * **Workspace Structure:**
      * `crates/core`: Pure logic (metrics, heuristic scoring). Compiles to `wasm32-unknown-unknown`.
-     * `crates/worker`: Cloudflare Worker specific code.
      * `crates/client`: WASM bindings for the browser (`wasm-bindgen`).
    * **Functionality:**
      * `compute_metrics(transcript, duration) -> Metrics`
@@ -146,8 +137,6 @@
    * **Heuristic scoring** (in `crates/core`):
      * Maps metrics → rough bands.
      * **Local Grammar Checker**: NLP-based analysis (Compromise.js) in frontend for subject-verb agreement and stylistic improvements.
-   * **AI augmentation** (Worker only for now):
-     * LLM based refinement (optional/future).
 
 5. **UI layer**
 
@@ -158,22 +147,6 @@
 6. **Storage**
 
    * `idb-keyval` for simple IndexedDB access.
-
-### 4.3 Backend modules (Worker)
-
-1. **Routing**
-
-   * `GET /` – Health.
-   * `POST /api/transcribe-and-score`.
-
-2. **Transcription pipeline**
-
-   * Workers AI (Whisper) as the robust backend fallback.
-
-3. **Scoring pipeline**
-
-   * Decodes `crates/core` shared logic for metrics.
-   * Calls Workers AI (Llama 3 / generic LLM) for feedback text.
 
 ---
 
@@ -266,10 +239,6 @@ type BandScores = {
 * **Phase 3: Real Audio (Transformers.js)**
   * Implement `LocalTranscriber` with `transformers.js`.
   * Validate performance on Desktop Chrome.
-
-* **Phase 4: The Backend**
-  * Implement Cloudflare Worker with `crates/worker`.
-  * Add `RemoteTranscriber` fallback.
 
 * **Phase 5: Polish & Offline**
   * PWA Manifest.
