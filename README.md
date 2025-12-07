@@ -2,14 +2,14 @@
 
 **Browser-based AI Speaking Practice**
 
-Speako is a local-first application designed for practicing exam-style English speaking tests (like IELTS). It prioritizes user privacy and low latency by running powerful AI models directly in your browser using WebAssembly and WebGPU.
+Speako is a local-first application designed for practicing exam-style English speaking tests. It prioritizes user privacy and low latency by running powerful AI models directly in your browser using WebAssembly and WebGPU.
 
 ## Features
 
 - **🔒 Privacy First**: Voice data is processed locally on your device using `transformers.js` and Rust-based WASM modules.
 - **⚡️ Ultra-Low Latency**: Instant feedback on speaking metrics (word count, pace, etc.) without server round-trips.
 - **🎯 Exam Tools**:
-    - **Topic Generator**: Random IETLS-style discussion prompts.
+    - **Topic Generator**: Random discussion prompts.
     - **Pronunciation Confidence**: Color-coded transcript showing low-confidence words.
     - **Local Grammar Check**: Smart client-side NLP (via `compromise.js`) for instant feedback on grammar and vocabulary.
 - **☁️ Cloud Fallback**: Automatically switches to a Cloudflare Worker backend if local device capabilities are insufficient.

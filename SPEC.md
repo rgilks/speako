@@ -3,7 +3,7 @@
 ## 1. Overview
 
 **Product name:** Speako
-**Purpose:** Browser-based practice tool for “exam-style English speaking tests” (IELTS-style but unbranded).
+**Purpose:** Browser-based practice tool for “exam-style English speaking tests” (unbranded).
 **Primary users:** Learners in low/medium income contexts (e.g. Philippines, India) aiming for bands around 5.5–7.5.
 **Key constraint:** **Ultra-low running cost** → push as much as possible to the client (browser) and keep the backend thin.
 
@@ -31,7 +31,7 @@
    * Remote AI calls are optional / capped / testable separately.
 2. **Good-enough approximations**
 
-   * “IELTS-like” bands using public descriptors.
+   * “Exam-like” bands using public descriptors.
    * Helpful, concrete feedback rather than exact band replication.
 3. **Privacy-forward**
 
@@ -53,17 +53,17 @@
 
 ### Modes
 
-1. **Quick Warm-up (Part 1 style)**
+1. **Quick Warm-up (Short Questions)**
 
    * 3–6 simple questions (home, work, hobbies).
    * User records short answers in one session.
 
-2. **Long Turn (Part 2 style)**
+2. **Long Turn (Presentation)**
 
    * Cue card (topic + bullet points).
    * **1 min prep** → **2 min speaking**.
 
-3. **Discussion (Part 3 style)**
+3. **Discussion (Deep Dive)**
 
    * 3–5 more abstract questions linked to a theme.
 

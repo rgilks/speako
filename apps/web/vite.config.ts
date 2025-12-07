@@ -13,9 +13,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Speako - IELTS Practice',
+        name: 'Speako - Speaking Practice',
         short_name: 'Speako',
-        description: 'Offline-capable IELTS Speaking practice tool',
+        description: 'Offline-capable English Speaking practice tool',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
