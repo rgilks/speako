@@ -287,24 +287,29 @@ export function SessionManager() {
             </p>
           </div>
 
-          {grammarIssues.value.length > 0 && (
-              <div style={{ marginTop: "1rem", padding: "1.5rem", background: "rgba(255,193,7,0.1)", borderRadius: "var(--radius-md)", border: "1px solid rgba(255,193,7,0.2)" }}>
-                <p className="text-xs font-bold text-yellow-600 uppercase mb-3">Feedback Hints</p>
-                <div className="flex flex-col gap-2">
-                    {grammarIssues.value.map((issue, idx) => (
-                        <div key={idx} className="flex gap-3 items-start p-2 bg-white/50 rounded-md">
-                            <span style={{ fontSize: '1.2rem' }}>{issue.type === 'suggestion' ? '💡' : '⚠️'}</span>
-                            <div>
-                                <p className="text-sm font-medium text-gray-800">{issue.message}</p>
-                                {issue.replacement && (
-                                    <p className="text-xs text-gray-500 mt-1">Try: <span className="font-mono text-blue-600">{issue.replacement}</span></p>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-              </div>
-          )}
+                <div style={{ marginTop: "1rem", padding: "1.5rem", background: "rgba(255,193,7,0.1)", borderRadius: "var(--radius-md)", border: "1px solid rgba(255,193,7,0.2)" }}>
+                 <p className="text-xs font-bold text-yellow-600 uppercase mb-3">Feedback Hints</p>
+                 {grammarIssues.value.length > 0 ? (
+                     <div className="flex flex-col gap-2">
+                         {grammarIssues.value.map((issue, idx) => (
+                             <div key={idx} className="flex gap-3 items-start p-2 bg-white/50 rounded-md">
+                                 <span style={{ fontSize: '1.2rem' }}>{issue.type === 'suggestion' ? '💡' : '⚠️'}</span>
+                                 <div>
+                                     <p className="text-sm font-medium text-gray-800">{issue.message}</p>
+                                     {issue.replacement && (
+                                         <p className="text-xs text-gray-500 mt-1">Try: <span className="font-mono text-blue-600">{issue.replacement}</span></p>
+                                     )}
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 ) : (
+                     <div className="flex gap-3 items-center p-2 bg-white/50 rounded-md opacity-75">
+                         <span style={{ fontSize: '1.2rem' }}>✨</span>
+                         <p className="text-sm font-medium text-gray-800">Great job! No obvious grammar issues detected.</p>
+                     </div>
+                 )}
+               </div>
 
              <div style={{ marginTop: "2rem", textAlign: "center" }}>
               <button className="btn-secondary" onClick={handleRetry}>Start New Session</button>
