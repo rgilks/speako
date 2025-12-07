@@ -145,8 +145,9 @@
 
    * **Heuristic scoring** (in `crates/core`):
      * Maps metrics → rough bands.
+     * **Local Grammar Checker**: Regex-based heuristic suggestions (repetition, weak vocab) in frontend.
    * **AI augmentation** (Worker only for now):
-     * LLM based refinement.
+     * LLM based refinement (optional/future).
 
 5. **UI layer**
 

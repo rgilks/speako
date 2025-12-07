@@ -1,13 +1,14 @@
-import { ITranscriber } from './transcriber';
+import { ITranscriber, TranscriptionResult } from './transcriber';
 import { AudioRecorder } from './audio';
 
 export class RemoteTranscriber implements ITranscriber {
   private recorder = new AudioRecorder();
   public onProgress?: (msg: string) => void;
   // Use env var if available (for production), otherwise relative path (for local dev proxy or same-domain)
+  // For production deployment without custom domain, hardcode the worker URL
   private endpoint = import.meta.env.VITE_API_URL 
     ? `${import.meta.env.VITE_API_URL}/api/transcribe` 
-    : "/api/transcribe";
+    : "https://speako-worker.rob-gilks.workers.dev/api/transcribe";
 
   async start(): Promise<void> {
     this.onProgress?.("Connecting to server...");
@@ -16,7 +17,7 @@ export class RemoteTranscriber implements ITranscriber {
     this.onProgress?.("Recording (Remote)...");
   }
 
-  async stop(): Promise<string> {
+  async stop(): Promise<TranscriptionResult> {
     this.onProgress?.("Uploading...");
     const audioBlob = await this.recorder.stop();
     
@@ -35,7 +36,10 @@ export class RemoteTranscriber implements ITranscriber {
       }
 
       const data = await response.json();
-      return data.transcript || "";
+      return {
+          text: data.transcript || "",
+          words: [] // Remote worker doesn't support timestamps yet
+      };
     } catch (e: any) {
         console.error("Remote transcription failed:", e);
         throw e;
