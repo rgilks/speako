@@ -46,12 +46,16 @@ export class LocalTranscriber implements ITranscriber {
     const url = URL.createObjectURL(audioBlob);
     
     try {
-      const output = await this.model(url);
-      // Clean up
+      // Request word-level timestamps for fluency analysis
+      const output = await this.model(url, { return_timestamps: 'word' });
       URL.revokeObjectURL(url);
       
-      // Output format is { text: "..." } or similar depending on task
-      if (typeof output === 'object' && output.text) {
+      // The output structure with timestamps is { text: "...", chunks: [{ text: "word", timestamp: [start, end] }] }
+      // For now we just return the text, but log the chunks for debugging/future use.
+      if (typeof output === 'object') {
+        if (output.chunks) {
+            console.log("Fluency Data (Chunks):", output.chunks);
+        }
         return output.text.trim();
       } else if (Array.isArray(output) && output[0] && output[0].text) {
          return output[0].text.trim();

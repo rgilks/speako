@@ -1,21 +1,21 @@
-import { Signal, useSignal } from "@preact/signals";
+import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { LocalTranscriber } from "../logic/local-transcriber";
 import { RemoteTranscriber } from "../logic/remote-transcriber";
 // In real app, we'd import the WASM module dynamically or via the plugin
 import * as wasm from "../../../../crates/client/pkg/speako_client";
 
-type SessionState = "idle" | "loading_model" | "recording" | "analyzing" | "results";
-
 export function SessionManager() {
-  const state = useSignal<SessionState>("idle");
+  const isRecording = useSignal(false);
+  const isProcessing = useSignal(false);
   const transcript = useSignal("");
   const metrics = useSignal<any>(null);
   const statusMsg = useSignal("");
+  const lastDuration = useSignal(0);
+  const startTime = useRef(0);
 
   useEffect(() => {
     try {
-      console.log("WASM Module loaded:", Object.keys(wasm));
       console.log("WASM Module loaded:", Object.keys(wasm));
       console.log("Type of calculate_metrics_wasm:", typeof wasm.calculate_metrics_wasm);
       const wasmModule = wasm as any;
@@ -30,135 +30,160 @@ export function SessionManager() {
   
   // Instance for the component
   const localTranscriber = new LocalTranscriber();
+  // Remote fallback
   const remoteTranscriber = new RemoteTranscriber();
-  // mutable ref to track which one is active
-  const activeTranscriber = useRef<any>(localTranscriber);
 
-  // Hook up progress callback for both
-  const onProgress = (msg: string) => {
-    statusMsg.value = msg;
-  };
-  localTranscriber.onProgress = onProgress;
-  remoteTranscriber.onProgress = onProgress;
-
-  const startSession = async () => {
-    statusMsg.value = "Initializing...";
-    state.value = "loading_model";
-    
+  const handleStart = async () => {
     try {
-      console.log("Attempting local transcription...");
-      activeTranscriber.current = localTranscriber;
-      await localTranscriber.start();
-    } catch (e) {
-      console.warn("Local model failed, falling back to remote:", e);
-      statusMsg.value = "Local AI failed. Switching to Cloud...";
-      // Give UI a moment to show the message
-      await new Promise(r => setTimeout(r, 1000));
+      isRecording.value = true;
+      transcript.value = "";
+      metrics.value = null;
+      statusMsg.value = "Starting...";
+      startTime.current = Date.now();
       
-      activeTranscriber.current = remoteTranscriber;
-      try {
-        await remoteTranscriber.start();
-      } catch (remoteErr) {
-        console.error("Remote failed too:", remoteErr);
-        state.value = "idle";
-        alert("Could not start recording (Local & Remote failed).");
-        return;
-      }
+      localTranscriber.onProgress = (msg) => {
+        statusMsg.value = msg;
+      };
+      
+      await localTranscriber.start();
+      statusMsg.value = "Recording... (Speak now)";
+    } catch (e) {
+      console.error(e);
+      statusMsg.value = "Error starting recording";
+      isRecording.value = false;
     }
-    
-    state.value = "recording";
   };
 
-  const stopSession = async () => {
-    state.value = "analyzing";
-    let text = "";
-    try {
-      text = await activeTranscriber.current.stop();
-    } catch (e) {
-      console.error("Transcription failed:", e);
-      text = "Error: Transcription failed.";
-    }
+  const handleStop = async () => {
+    isRecording.value = false;
+    isProcessing.value = true;
+    const durationSec = (Date.now() - startTime.current) / 1000;
+    lastDuration.value = durationSec;
     
-    transcript.value = text;
-    
-    // Call Rust WASM
     try {
-      console.log("Calling WASM with text length:", text.length);
-      const result = wasm.calculate_metrics_wasm(text);
-      console.log("Wasm Result:", result);
-      metrics.value = result;
-      state.value = "results";
+      // Attempt local first
+      let text = await localTranscriber.stop();
+      
+      // Fallback if local fails or returns empty (depending on logic)
+      if (!text || text.trim().length === 0 || text.startsWith("[Error")) {
+          console.warn("Local transcription failed/empty. Remote fallback requires architecture change to share audio blob.");
+          statusMsg.value = "Local transcription failed.";
+          // TODO: Implement proper fallback by passing audio blob to RemoteTranscriber
+      }
+
+      transcript.value = text;
+      
+      if (text) {
+        // Calculate metrics using WASM
+        try {
+            const calculated = wasm.calculate_metrics_wasm(text);
+            metrics.value = calculated;
+            console.log("Metrics:", calculated);
+        } catch (e) {
+            console.error("WASM Error:", e);
+            statusMsg.value = "Error calculating metrics";
+        }
+      }
     } catch (e) {
-      console.error("WASM Error:", e);
-      alert(`Error calculating metrics: ${e}`);
-      // Fallback to empty results so user isn't stuck
-      state.value = "results"; 
+      console.error(e);
+      statusMsg.value = "Error processing audio";
+    } finally {
+      isProcessing.value = false;
+      statusMsg.value = "Ready";
     }
   };
+
+  const resetSession = () => {
+      transcript.value = "";
+      metrics.value = null;
+      statusMsg.value = "";
+  };
+
+  // Derived state for UI view
+  const showIntro = !isRecording.value && !isProcessing.value && !metrics.value;
+  const showRecording = isRecording.value;
+  const showProcessing = isProcessing.value;
+  const showResults = !!metrics.value;
 
   return (
-    <div className="session-container animate-fade-in">
+    <div className="session-container animate-fade-in text-center">
       
-      {state.value === "idle" && (
+      {showIntro && (
         <>
           <h1 className="heading-xl">Speako</h1>
           <p className="text-muted" style={{ marginBottom: "2rem", fontSize: "1.1rem" }}>
             Real-time local AI speech analysis.
           </p>
-          <button className="btn-primary" onClick={startSession}>
+          <button className="btn-primary" onClick={handleStart}>
             Start Analysis
           </button>
+           <p className="status-badge" style={{marginTop: '1rem'}}>{statusMsg.value}</p>
         </>
       )}
 
-      {state.value === "loading_model" && (
-        <>
-          <div style={{ width: 40, height: 40, border: "3px solid var(--accent-primary)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <p className="heading-lg">Initializing AI</p>
-          <p className="status-badge">{statusMsg.value || "Loading model..."}</p>
-        </>
+      {(showRecording || showProcessing) && (
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+             {showProcessing ? (
+               <div style={{ width: 60, height: 60, border: "4px solid var(--accent-primary)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite", margin: '0 auto 2rem auto' }}></div>
+             ) : (
+                <div className="visualizer-circle animate-pulse" style={{margin: '0 auto 2rem auto'}}>
+                    <span style={{ fontSize: "3rem" }}>🎙️</span>
+                </div>
+             )}
+             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+             
+             <p className="heading-lg mb-4">{showProcessing ? "Analyzing..." : "Listening..."}</p>
+             <p className="text-muted mb-8">{statusMsg.value}</p>
+             
+             {showRecording && (
+                <button className="btn-stop" onClick={handleStop}>Stop</button>
+             )}
+        </div>
       )}
 
-      {state.value === "recording" && (
-        <>
-          <div className="visualizer-circle">
-            <span style={{ fontSize: "2rem" }}>🎙️</span>
-          </div>
-          <p className="heading-lg animate-pulse">Listening...</p>
-          <button className="btn-stop" onClick={stopSession}>Stop Recording</button>
-        </>
-      )}
-
-      {state.value === "analyzing" && (
-        <>
-          <p className="heading-lg">Transcribing...</p>
-          <p className="text-muted">Running local inference on device</p>
-        </>
-      )}
-
-      {state.value === "results" && metrics.value && (
-        <div className="card-glass animate-fade-in" style={{ width: "100%", maxWidth: "600px", textAlign: "left" }}>
-          <h2 className="heading-lg" style={{ marginBottom: "1rem" }}>Session Results</h2>
+      {showResults && metrics.value && (
+        <div className="card-glass animate-fade-in mx-auto" style={{ width: "100%", maxWidth: "600px", textAlign: "left" }}>
+          <h2 className="heading-lg mb-6 text-center">Session Results</h2>
           
-          <div className="metric-grid">
-            <div className="metric-item">
-              <span className="metric-value">{metrics.value.word_count}</span>
-              <span className="metric-label">Words</span>
+          <div className="metric-grid grid grid-cols-2 gap-4 mb-6">
+            <div className="metric-item p-4 bg-blue-50/50 rounded-xl text-center">
+              <span className="metric-value block text-3xl font-bold text-blue-600">{metrics.value.word_count}</span>
+              <span className="metric-label text-xs uppercase text-blue-400">Words</span>
             </div>
-            <div className="metric-item">
-              <span className="metric-value">{metrics.value.character_count}</span>
-              <span className="metric-label">Characters</span>
+            
+             <div className="metric-item p-4 bg-purple-50/50 rounded-xl text-center">
+              <span className="metric-value block text-3xl font-bold text-purple-600">
+                {lastDuration.value > 0 ? Math.round(metrics.value.word_count / (lastDuration.value / 60)) : 0}
+              </span>
+              <span className="metric-label text-xs uppercase text-purple-400">WPM</span>
             </div>
+
+             {metrics.value.cefr_level && (
+              <div className="col-span-2 metric-item p-6 bg-green-50/50 rounded-xl text-center border-2 border-green-100">
+                <span className="metric-value block text-5xl font-black text-green-600 mb-2">{metrics.value.cefr_level}</span>
+                <span className="metric-label text-xs uppercase text-green-500 tracking-widest">Estimated CEFR Level</span>
+                
+                <div className="mt-4 flex justify-center gap-6 text-sm text-gray-500">
+                    <div className="flex flex-col">
+                        <span className="font-bold text-gray-700">{metrics.value.unique_words}</span>
+                        <span className="text-xs">Unique Words</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="font-bold text-gray-700">{metrics.value.complex_words}</span>
+                        <span className="text-xs">Complex Words</span>
+                    </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div style={{ marginTop: "2rem", padding: "1rem", background: "rgba(0,0,0,0.2)", borderRadius: "var(--radius-md)" }}>
-            <p className="text-muted" style={{ fontSize: "0.9rem", marginBottom: "0.5rem" }}>TRANSCRIPT</p>
-            <p style={{ lineHeight: "1.6" }}>{transcript.value}</p>
+          <div style={{ padding: "1.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)" }}>
+            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Transcript</p>
+            <p className="text-gray-700 leading-relaxed text-lg">{transcript.value}</p>
           </div>
 
-          <div style={{ marginTop: "2rem", textAlign: "right" }}>
-             <button className="btn-secondary" onClick={() => state.value = "idle"}>Start New Session</button>
+          <div style={{ marginTop: "2rem", textAlign: "center" }}>
+             <button className="btn-secondary" onClick={resetSession}>Start New Session</button>
           </div>
         </div>
       )}
