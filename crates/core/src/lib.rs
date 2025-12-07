@@ -98,5 +98,55 @@ mod tests {
         let metrics = compute_metrics(text);
         assert_eq!(metrics.word_count, 0);
         assert_eq!(metrics.character_count, 0);
+        assert_eq!(metrics.cefr_level, "A1");
+    }
+
+    #[test]
+    fn test_compute_metrics_punctuation() {
+        let text = "Hello, world! This is a test.";
+        let metrics = compute_metrics(text);
+        // "Hello," "world!" "This" "is" "a" "test." -> 6 tokens by split_whitespace
+        assert_eq!(metrics.word_count, 6);
+        // Unique words: hello, world, this, is, a, test
+        assert_eq!(metrics.unique_words, 6);
+    }
+
+    #[test]
+    fn test_cefr_simple() {
+        // Very short sentences, simple words -> Lower CEFR
+        let text = "I go to the shop. It is big. I see a cat.";
+        let metrics = compute_metrics(text);
+        // 12 words. Avg sent len = 4. Complex ratio ~ low.
+        // sent_score = (4/25)*50 = 8.
+        // vocab_score ~ small.
+        // Total likely < 20.
+        assert_eq!(metrics.cefr_level, "A1");
+    }
+
+    #[test]
+    fn test_cefr_complex() {
+        // Longer sentences, complex words -> Higher CEFR
+        // "Fundamental", "understanding", "algorithms", "essential", "software", "development"
+        let text = "A fundamental understanding of intricate algorithms is absolutely essential for comprehensive software development."; // 13 words
+        let metrics = compute_metrics(text);
+        
+        // Sentence len: 13. Score = (13/25)*50 = 26.
+        // Complex words: fundamental, understanding, intricate, algorithms, absolute, essential, comprehensive, software, development.
+        // Let's assume common list is generic. "is", "for", "a", "of" are common.
+        // Complex count ~ 9? 9/13 = 0.69 > 0.25 max cap.
+        // Vocab score = 50.
+        // Total = 76.
+        // < 80 => B2. < 90 => C1.
+        // We expect at least B2 or C1.
+        assert!(metrics.cefr_level == "B2" || metrics.cefr_level == "C1" || metrics.cefr_level == "C2", "Got {}", metrics.cefr_level);
+    }
+
+    #[test]
+    fn test_noise_handling() {
+        let text = "   ...   ";
+        let metrics = compute_metrics(text);
+        assert_eq!(metrics.word_count, 1); // "..." is a token in split_whitespace
+        // cefr should be A1 (word count < 10)
+        assert_eq!(metrics.cefr_level, "A1");
     }
 }

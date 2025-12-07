@@ -20,17 +20,9 @@ export function SessionManager() {
   const lastDuration = useSignal(0);
   const startTime = useRef(0);
 
+  // WASM module is auto-initialized by vite-plugin-wasm via Top-Level Await
   useEffect(() => {
-    try {
-      console.log("WASM Module loaded:", Object.keys(wasm));
-      const wasmModule = wasm as any;
-      if (wasmModule.init) {
-          wasmModule.init();
-          console.log("WASM Panic Hook initialized.");
-      }
-    } catch (e) {
-      console.error("Failed to init WASM:", e);
-    }
+     console.log("WASM Module loaded.");
   }, []);
 
   // Topic Generator Logic

@@ -40,7 +40,7 @@ export class GrammarChecker {
 
         // 2. Weak Verbs (Get/Got/Look)
         doc.verbs().forEach((v: any) => {
-             const root = v.root().text().toLowerCase();
+             const root = v.toInfinitive().text().toLowerCase();
              if (root === 'get' || root === 'got') {
                  const json = v.json({ offset: true });
                  issues.push({
@@ -91,8 +91,8 @@ export class GrammarChecker {
         (sentenceList as any).forEach((s: any, i: number) => {
              if (i === 0) return;
              
-             const firstWord = s.first().text().toLowerCase();
-             const prev = sentenceList.eq(i-1).first().text().toLowerCase();
+             const firstWord = s.terms().first().text().toLowerCase().replace(/[^a-z]/g, '');
+             const prev = sentenceList.eq(i-1).terms().first().text().toLowerCase().replace(/[^a-z]/g, '');
              
              if (firstWord === prev && (firstWord === 'i' || firstWord === 'the' || firstWord === 'and')) {
                   // Only flag common weaker starters

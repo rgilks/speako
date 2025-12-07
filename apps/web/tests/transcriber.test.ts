@@ -6,6 +6,6 @@ describe('FakeTranscriber', () => {
     const t = new FakeTranscriber();
     await t.start();
     const result = await t.stop();
-    expect(result).toContain("This is a fake transcript");
+    expect(result.text).toContain("This is a fake transcript");
   });
 });
