@@ -1,0 +1,16 @@
+{
+  "name": "speako-monorepo",
+  "private": true,
+  "scripts": {
+    "build:wasm": "wasm-pack build crates/client --target web",
+    "dev": "pnpm build:wasm && pnpm -F speako-web dev",
+    "test:rust": "cargo test -p speako_core",
+    "test:web": "pnpm -F speako-web dev -- --test", 
+    "build:web": "pnpm -F speako-web build",
+    "build:all": "pnpm build:wasm && pnpm build:web",
+    "test:all": "pnpm test:rust && cd apps/web && pnpm dlx vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}
