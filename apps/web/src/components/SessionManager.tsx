@@ -72,7 +72,7 @@ export function SessionManager() {
       
       // Select transcriber based on config
       // Default to Local as it's the core feature. Remote is fallback.
-      if (true || env.allowLocalModels) {
+      if (env.allowLocalModels) {
          console.log("[SessionManager] Using LocalTranscriber.");
          localTranscriber.onProgress = (msg) => { statusMsg.value = msg; };
          await localTranscriber.start();
@@ -99,7 +99,7 @@ export function SessionManager() {
     // Stop recording and get text
     let result: TranscriptionResult = { text: "", words: [] };
     try {
-      if (true || env.allowLocalModels) {
+      if (env.allowLocalModels) {
         console.log("[SessionManager] Stopping LocalTranscriber...");
         result = await localTranscriber.stop();
       } else {
