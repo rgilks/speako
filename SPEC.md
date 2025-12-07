@@ -145,7 +145,7 @@
 
    * **Heuristic scoring** (in `crates/core`):
      * Maps metrics → rough bands.
-     * **Local Grammar Checker**: Regex-based heuristic suggestions (repetition, weak vocab) in frontend.
+     * **Local Grammar Checker**: NLP-based analysis (Compromise.js) in frontend for subject-verb agreement and stylistic improvements.
    * **AI augmentation** (Worker only for now):
      * LLM based refinement (optional/future).
 

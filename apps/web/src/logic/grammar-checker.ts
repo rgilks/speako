@@ -1,3 +1,5 @@
+import nlp from 'compromise';
+
 export interface GrammarIssue {
     message: string;
     offset: number;
@@ -9,74 +11,124 @@ export interface GrammarIssue {
 export class GrammarChecker {
     static check(text: string): GrammarIssue[] {
         const issues: GrammarIssue[] = [];
-        
-        // 1. Check for repeated words (e.g., "the the")
-        // Case insensitive, ensures word boundary
-        const repeatedWordRegex = /\b(\w+)\s+\1\b/gi;
-        let match;
-        while ((match = repeatedWordRegex.exec(text)) !== null) {
-            issues.push({
-                message: `Double word detected: "${match[0]}"`,
-                offset: match.index,
-                length: match[0].length,
-                type: 'warning',
-                replacement: match[1]
-            });
-        }
+        const doc = nlp(text);
 
-        // 2. Check for "a" vs "an" (Simplified heuristic)
-        // Matches "a" followed by vowel, or "an" followed by consonant
-        const aAnRegex = /\b(a)\s+([aeiou]\w+)| \b(an)\s+([bcdfghjklmnpqrstvwxyz]\w+)/gi;
-        while ((match = aAnRegex.exec(text)) !== null) {
-            const word = match[0];
-            const isAError = word.toLowerCase().startsWith('a ');
-            issues.push({
-                message: isAError ? `Should this be "an"?` : `Should this be "a"?`,
-                offset: match.index,
-                length: match[0].length,
+        // 1. Weak Vocabulary (Using NLP tagging)
+        // Check for "very + Adjective" to suggest stronger adjectives
+        doc.match('very #Adjective').forEach((m: any) => {
+             const weak = m.text().toLowerCase();
+             let replacement = '';
+             
+             if (weak.includes('good')) replacement = 'excellent / superb';
+             else if (weak.includes('bad')) replacement = 'terrible / awful';
+             else if (weak.includes('big')) replacement = 'massive / enormous';
+             else if (weak.includes('small')) replacement = 'tiny / minuscule';
+             else if (weak.includes('happy')) replacement = 'thrilled / elated';
+             else if (weak.includes('sad')) replacement = 'devastated';
+             
+             if (replacement) {
+                 const json = m.json({ offset: true });
+                 issues.push({
+                     message: `Use a stronger adjective instead of "${m.text()}"`,
+                     offset: json[0].offset.start,
+                     length: json[0].length,
+                     type: 'suggestion',
+                     replacement
+                 });
+             }
+        });
+
+        // 2. Weak Verbs (Get/Got/Look)
+        doc.verbs().forEach((v: any) => {
+             const root = v.root().text().toLowerCase();
+             if (root === 'get' || root === 'got') {
+                 const json = v.json({ offset: true });
+                 issues.push({
+                     message: `Avoid "get/got" in formal speaking. Try 'obtain', 'receive', or 'become'.`,
+                     offset: json[0].offset.start,
+                     length: json[0].length,
+                     type: 'suggestion',
+                     replacement: 'obtain / receive'
+                 });
+             }
+             if (root === 'look' && v.has('at')) {
+                  const json = v.json({ offset: true });
+                  issues.push({
+                     message: `Try 'examine' or 'observe' instead of 'look at'.`,
+                     offset: json[0].offset.start,
+                     length: json[0].length,
+                     type: 'suggestion'
+                 });
+             }
+        });
+
+        // 3. Subject-Verb Agreement Heuristics
+        // "He go" -> match singular pronoun + infinite verb (that isn't a modal like 'can go')
+        // Exclude 'I' and 'You' which take plural-like forms
+        doc.match('(he|she|it) #Infinitive').not('#Modal').forEach((m: any) => {
+             const json = m.json({ offset: true });
+             // Quick check to avoid false positives with "did he go"
+             if (!m.lookBehind('did').found) {
+                 issues.push({
+                    message: `Possible agreement error: "${m.text()}". Should it be 3rd person singular? (e.g. goes, runs)`,
+                    offset: json[0].offset.start,
+                    length: json[0].length,
+                    type: 'warning'
+                });
+             }
+        });
+
+        // 4. Repeated Sentence Starters (Anaphora)
+        const sentences = doc.sentences().json();
+        let prevStart = "";
+        let consecutiveCount = 0;
+        
+        // We need to re-map sentence indices to text offsets manually since json() might chunk differently
+        // Simplified approach using raw text split for offset calculation if needed, 
+        // but nlp logic is better for the check itself.
+        // Let's iterate using the nlp sentence objects directly
+        const sentenceList = doc.sentences();
+        (sentenceList as any).forEach((s: any, i: number) => {
+             if (i === 0) return;
+             
+             const firstWord = s.first().text().toLowerCase();
+             const prev = sentenceList.eq(i-1).first().text().toLowerCase();
+             
+             if (firstWord === prev && (firstWord === 'i' || firstWord === 'the' || firstWord === 'and')) {
+                  // Only flag common weaker starters
+                  const json = s.first().json({ offset: true });
+                  issues.push({
+                     message: `Repetitive start ("${firstWord}..."). Try to vary your sentence connectors.`,
+                     offset: json[0].offset.start,
+                     length: json[0].length,
+                     type: 'suggestion'
+                 });
+             }
+        });
+
+        // 5. Filler Words (NLP tagged)
+        const fillers = doc.match('(um|uh|like|sort of|kind of)').not('#Verb'); // exclude "I like"
+        const wordCount = doc.wordCount();
+        if (wordCount > 20 && (fillers.length / wordCount) > 0.05) {
+             issues.push({
+                message: `Filler words detected (${fillers.length}). Try pausing silently instead.`,
+                offset: 0,
+                length: 0,
                 type: 'warning'
             });
         }
-
-        // 3. Weak Vocabulary Suggestions
-        const weakWords = [
-            { word: 'very good', stronger: ['excellent', 'superb', 'outstanding'] },
-            { word: 'very bad', stronger: ['terrible', 'awful', 'dreadful'] },
-            { word: 'very big', stronger: ['massive', 'huge', 'enormous'] },
-            { word: 'very small', stronger: ['tiny', 'minuscule'] },
-            { word: 'very happy', stronger: ['thrilled', 'delighted', 'elated'] },
-            { word: 'very sad', stronger: ['devastated', 'heartbroken'] },
-            { word: 'a lot of', stronger: ['numerous', 'many', 'significant'] }
-        ];
-
-        weakWords.forEach(item => {
-            const regex = new RegExp(`\\b${item.word}\\b`, 'gi');
-            while ((match = regex.exec(text)) !== null) {
+        
+        // 6. Run-on Sentences
+        sentenceList.forEach((s: any) => {
+            if (s.wordCount() > 40) {
+                 const json = s.json({ offset: true });
                  issues.push({
-                    message: `Try a stronger word instead of "${item.word}"`,
-                    offset: match.index,
-                    length: match[0].length,
-                    type: 'suggestion',
-                    replacement: item.stronger.join(' / ')
-                });
-            }
-        });
-
-        // 4. Sentence Length Warning (Run-on sentences)
-        // If a sentence (split by .!?) is > 40 words
-        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-        let runningOffset = 0;
-        sentences.forEach(sent => {
-            const wordCount = sent.trim().split(/\s+/).length;
-            if (wordCount > 35) {
-                issues.push({
-                    message: `Long sentence (${wordCount} words). Consider breaking it up.`,
-                    offset: runningOffset,
-                    length: sent.length,
+                    message: `Long sentence (${s.wordCount()} words). Risk of losing clarity.`,
+                    offset: json[0].offset.start,
+                    length: json[0].length,
                     type: 'warning'
                 });
             }
-            runningOffset += sent.length;
         });
 
         return issues.sort((a, b) => a.offset - b.offset);

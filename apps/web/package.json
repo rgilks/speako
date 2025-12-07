@@ -11,6 +11,7 @@
   "dependencies": {
     "@preact/signals": "^1.2.0",
     "@xenova/transformers": "^2.17.2",
+    "compromise": "^14.14.4",
     "idb-keyval": "^6.0.0",
     "preact": "^10.19.0",
     "wavefile": "^11.0.0"

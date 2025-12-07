@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
+import { Fragment } from "preact";
 import { env } from "@xenova/transformers";
 import { LocalTranscriber } from "../logic/local-transcriber";
 import { RemoteTranscriber } from "../logic/remote-transcriber";
@@ -286,17 +287,19 @@ export function SessionManager() {
 
           <div style={{ padding: "1.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)" }}>
             <p className="text-xs font-bold text-gray-400 uppercase mb-2">Transcript & Clarity</p>
-            <p className="text-gray-700 leading-relaxed text-lg">
+            <p className="text-gray-700 leading-relaxed text-lg" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                 {transcript.value?.words && transcript.value.words.length > 0 ? (
                     transcript.value.words.map((w, i) => (
-                        <span key={i} title={`Confidence: ${Math.round(w.score * 100)}%`} 
-                              style={{ 
-                                  color: w.score < 0.7 ? '#ef4444' : w.score < 0.9 ? '#eab308' : 'inherit',
-                                  marginRight: '4px',
-                                  cursor: 'help'
-                              }}>
-                            {w.word}
-                        </span>
+                        <Fragment key={i}>
+                            <span title={`Confidence: ${Math.round(w.score * 100)}%`} 
+                                style={{ 
+                                    color: w.score < 0.7 ? '#ef4444' : w.score < 0.9 ? '#eab308' : 'inherit',
+                                    cursor: 'help'
+                                }}>
+                                {w.word}
+                            </span>
+                            {" "}
+                        </Fragment>
                     ))
                 ) : (
                     transcript.value?.text || ""

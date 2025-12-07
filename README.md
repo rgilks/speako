@@ -11,7 +11,7 @@ Speako is a local-first application designed for practicing exam-style English s
 - **🎯 Exam Tools**:
     - **Topic Generator**: Random IETLS-style discussion prompts.
     - **Pronunciation Confidence**: Color-coded transcript showing low-confidence words.
-    - **Local Grammar Check**: Instant feedback on common errors (repetition, weak vocab) without AI API costs.
+    - **Local Grammar Check**: Smart client-side NLP (via `compromise.js`) for instant feedback on grammar and vocabulary.
 - **☁️ Cloud Fallback**: Automatically switches to a Cloudflare Worker backend if local device capabilities are insufficient.
 - **📱 PWA Ready**: Installable on mobile and desktop with full offline support (caches AI models).
 - **🦀 Rust Powered**: Core logic shared between client (WASM) and server (Worker) for consistency.
