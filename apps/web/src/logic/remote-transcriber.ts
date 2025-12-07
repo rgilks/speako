@@ -4,7 +4,10 @@ import { AudioRecorder } from './audio';
 export class RemoteTranscriber implements ITranscriber {
   private recorder = new AudioRecorder();
   public onProgress?: (msg: string) => void;
-  private endpoint = "/api/transcribe";
+  // Use env var if available (for production), otherwise relative path (for local dev proxy or same-domain)
+  private endpoint = import.meta.env.VITE_API_URL 
+    ? `${import.meta.env.VITE_API_URL}/api/transcribe` 
+    : "/api/transcribe";
 
   async start(): Promise<void> {
     this.onProgress?.("Connecting to server...");

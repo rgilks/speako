@@ -12,6 +12,21 @@ export function SessionManager() {
   const transcript = useSignal("");
   const metrics = useSignal<any>(null);
   const statusMsg = useSignal("");
+
+  useEffect(() => {
+    try {
+      console.log("WASM Module loaded:", Object.keys(wasm));
+      console.log("WASM Module loaded:", Object.keys(wasm));
+      console.log("Type of calculate_metrics_wasm:", typeof wasm.calculate_metrics_wasm);
+      const wasmModule = wasm as any;
+      if (wasmModule.init) {
+          wasmModule.init();
+          console.log("WASM Panic Hook initialized.");
+      }
+    } catch (e) {
+      console.error("Failed to init WASM:", e);
+    }
+  }, []);
   
   // Instance for the component
   const localTranscriber = new LocalTranscriber();
@@ -67,11 +82,18 @@ export function SessionManager() {
     transcript.value = text;
     
     // Call Rust WASM
-    const result = wasm.calculate_metrics_wasm(text);
-    console.log("Wasm Result:", result);
-    metrics.value = result;
-    
-    state.value = "results";
+    try {
+      console.log("Calling WASM with text length:", text.length);
+      const result = wasm.calculate_metrics_wasm(text);
+      console.log("Wasm Result:", result);
+      metrics.value = result;
+      state.value = "results";
+    } catch (e) {
+      console.error("WASM Error:", e);
+      alert(`Error calculating metrics: ${e}`);
+      // Fallback to empty results so user isn't stuck
+      state.value = "results"; 
+    }
   };
 
   return (
