@@ -426,3 +426,176 @@ button {
     background: var(--bg-secondary);
     color: var(--text-primary);
 }
+
+/* Results Dashboard (Pure CSS) */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.primary-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: var(--spacing-md);
+}
+
+@media (min-width: 768px) {
+    .primary-metrics-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.secondary-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 768px) {
+    .secondary-metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.metric-card-premium {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: transform var(--transition-fast);
+}
+
+.metric-card-premium:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.metric-card-premium::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.1;
+    z-index: 0;
+}
+
+.metric-card-premium.pronunciation::before {
+    background: linear-gradient(135deg, var(--accent-success), transparent);
+}
+
+.metric-card-premium.clarity::before {
+    background: linear-gradient(135deg, #f59e0b, transparent);
+}
+
+.metric-card-premium.cefr::before {
+    background: linear-gradient(135deg, #3b82f6, transparent);
+}
+
+.metric-card-premium .value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: var(--spacing-xs);
+    position: relative;
+    z-index: 1;
+}
+
+.metric-card-premium.pronunciation .value {
+    /* Fallback and Gradient */
+    color: var(--accent-success);
+    background: linear-gradient(to bottom, #4ade80, #16a34a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.metric-card-premium.clarity .value {
+    color: #f59e0b;
+    background: linear-gradient(to bottom, #fbbf24, #d97706);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.metric-card-premium.cefr .value {
+    color: #3b82f6;
+    background: linear-gradient(to bottom, #60a5fa, #2563eb);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.secondary-stat-item {
+    text-align: center;
+    padding: var(--spacing-xs);
+    position: relative;
+}
+
+.secondary-stat-item:not(:first-child)::after {
+    /* Separator line logic handled by grid gap usually, but if we want borders: */
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10%;
+    bottom: 10%;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.05);
+    display: none;
+    /* Simplify for grid gap */
+}
+
+/* Transcript & Report Grid */
+.details-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-sm);
+}
+
+@media (min-width: 1024px) {
+    .details-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.transcript-box {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+}
+
+.teacher-report {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.text-gradient-pronunciation {
+    background: linear-gradient(to bottom, #4ade80, #16a34a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}

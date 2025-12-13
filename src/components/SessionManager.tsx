@@ -393,98 +393,96 @@ export function SessionManager() {
       )}
 
       {view.value === "results" && (
-        <div className="card-glass animate-fade-in mx-auto" style={{ width: "100%", maxWidth: "800px", textAlign: "left" }}>
-          <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
+        <div className="card-glass animate-fade-in mx-auto" style={{ width: "100%", maxWidth: "900px", textAlign: "left" }}>
+          
+          {/* Header */}
+          <div className="dashboard-header">
               <div>
                 <h2 className="heading-lg mb-1">Session Results</h2>
                 <p className="text-muted text-sm">Great job! Here's how you performed.</p>
               </div>
-              <div className="text-right">
-                <span className="block text-3xl font-bold text-white">{lastDuration.value > 0 ? new Date(lastDuration.value * 1000).toISOString().substr(14, 5) : "00:00"}</span>
-                <span className="text-xs uppercase tracking-wider text-gray-500 font-bold">Duration</span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ display: 'block', fontSize: '1.8rem', fontWeight: 'bold', lineHeight: 1 }}>
+                    {lastDuration.value > 0 ? new Date(lastDuration.value * 1000).toISOString().substr(14, 5) : "00:00"}
+                </span>
+                <span className="metric-label">Duration</span>
               </div>
           </div>
 
           {metrics.value ? (
-          <div className="flex flex-col gap-6">
+          <div className="dashboard-layout">
             
             {/* Top Row: Primary Scores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="primary-metrics-grid">
                 {/* Pronunciation */}
-                <div className="metric-item relative overflow-hidden group border border-white/5 bg-white/5">
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative z-10 flex flex-col items-center justify-center py-4">
-                        <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-green-400 to-green-600 mb-1">
-                            {metrics.value.pronunciation_score ?? 0}%
-                        </div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-green-400/80">Pronunciation</span>
-                    </div>
+                <div className="metric-card-premium pronunciation">
+                    <span className="value">
+                        {metrics.value.pronunciation_score ?? 0}%
+                    </span>
+                    <span className="metric-label" style={{ color: 'var(--accent-success)' }}>Pronunciation</span>
                 </div>
 
                 {/* Clarity */}
-                <div className="metric-item relative overflow-hidden group border border-white/5 bg-white/5">
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative z-10 flex flex-col items-center justify-center py-4">
-                        <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-amber-400 to-amber-600 mb-1">
-                            {analysis.value?.clarityScore ?? 0}
-                        </div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-amber-400/80">Clarity Score</span>
-                    </div>
+                <div className="metric-card-premium clarity">
+                     <span className="value">
+                        {analysis.value?.clarityScore ?? 0}
+                    </span>
+                    <span className="metric-label" style={{ color: '#f59e0b' }}>Clarity Score</span>
                 </div>
 
                 {/* CEFR */}
-                <div className="metric-item relative overflow-hidden group border border-white/5 bg-white/5">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative z-10 flex flex-col items-center justify-center py-4">
-                        <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-blue-400 to-blue-600 mb-1">
-                            {metrics.value.cefr_level}
-                        </div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-blue-400/80">CEFR Level</span>
-                    </div>
+                <div className="metric-card-premium cefr">
+                    <span className="value">
+                        {metrics.value.cefr_level}
+                    </span>
+                    <span className="metric-label" style={{ color: '#3b82f6' }}>CEFR Level</span>
                 </div>
             </div>
 
             {/* Secondary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/5 rounded-xl p-4 border border-white/5">
-                 <div className="text-center p-2">
-                     <span className="block text-2xl font-bold text-gray-200">{metrics.value.word_count}</span>
-                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Total Words</span>
+            <div className="secondary-metrics-grid">
+                 <div className="secondary-stat-item">
+                     <span className="metric-subvalue">{metrics.value.word_count}</span>
+                     <span style={{ display: 'block' }} className="metric-sublabel">Total Words</span>
                  </div>
-                 <div className="text-center p-2 border-l border-white/5">
-                     <span className="block text-2xl font-bold text-gray-200">
+                 <div className="secondary-stat-item">
+                     <span className="metric-subvalue">
                         {lastDuration.value > 0 ? Math.round(metrics.value.word_count / (lastDuration.value / 60)) : 0}
                      </span>
-                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">WPM</span>
+                     <span style={{ display: 'block' }} className="metric-sublabel">WPM</span>
                  </div>
-                 <div className="text-center p-2 border-l border-white/5">
-                     <span className="block text-2xl font-bold text-gray-200">{metrics.value.unique_words}</span>
-                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Unique</span>
+                 <div className="secondary-stat-item">
+                     <span className="metric-subvalue">{metrics.value.unique_words}</span>
+                     <span style={{ display: 'block' }} className="metric-sublabel">Unique</span>
                  </div>
-                 <div className="text-center p-2 border-l border-white/5">
-                     <span className="block text-2xl font-bold text-gray-200">{metrics.value.complex_words}</span>
-                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Complex</span>
+                 <div className="secondary-stat-item">
+                     <span className="metric-subvalue">{metrics.value.complex_words}</span>
+                     <span style={{ display: 'block' }} className="metric-sublabel">Complex</span>
                  </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+            <div className="details-grid">
                 {/* Transcript */}
-                <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                    <div className="flex justify-between items-center mb-4">
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Transcript</p>
-                        <div className="flex gap-2">
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                            <span className="text-[10px] text-gray-500 uppercase">Unclear</span>
-                            <span className="w-2 h-2 rounded-full bg-amber-500 ml-2"></span>
-                            <span className="text-[10px] text-gray-500 uppercase">Hesitant</span>
+                <div className="transcript-box">
+                    <div className="flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                        <p className="metric-label">Transcript</p>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }}></span>
+                            <span className="metric-sublabel" style={{ fontSize: '0.65rem' }}>Unclear</span>
                         </div>
                     </div>
-                    <p className="text-gray-300 leading-relaxed text-lg font-light max-h-[300px] overflow-y-auto pr-2" style={{ wordWrap: 'break-word' }}>
+                    <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, maxHeight: '300px', overflowY: 'auto' }}>
                         {transcript.value?.words && transcript.value.words.length > 0 ? (
                             transcript.value.words.map((w, i) => (
                                 <Fragment key={i}>
                                     <span title={`Confidence: ${Math.round(w.score * 100)}%`} 
-                                        className={`transition-colors duration-200 ${w.score < 0.7 ? 'text-red-400 border-b border-red-500/30' : w.score < 0.85 ? 'text-amber-200' : ''}`}
-                                        style={{ cursor: 'help' }}>
+                                        style={{ 
+                                            color: w.score < 0.7 ? '#ef4444' : w.score < 0.85 ? '#fbbf24' : 'inherit',
+                                            borderBottom: w.score < 0.7 ? '1px dashed rgba(239, 68, 68, 0.4)' : 'none',
+                                            paddingBottom: w.score < 0.7 ? '2px' : '0',
+                                            cursor: 'help',
+                                            transition: 'color 0.2s'
+                                        }}>
                                         {w.word}
                                     </span>
                                     {" "}
@@ -498,22 +496,22 @@ export function SessionManager() {
 
                 {/* Teacher's Notes */}
                 {analysis.value && (
-                   <div className="rounded-xl border border-white/10 overflow-hidden bg-white/5 flex flex-col">
-                       <div className="bg-white/5 px-6 py-4 border-b border-white/5 flex justify-between items-center">
-                           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Teacher's Report</p>
-                           <span className="text-xl">👨‍🏫</span>
+                   <div className="teacher-report">
+                       <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                           <p className="metric-label">Teacher's Report</p>
+                           <span style={{ fontSize: '1.2rem' }}>👨‍🏫</span>
                        </div>
                        
-                       <div className="p-6 flex flex-col gap-6 flex-1 overflow-y-auto max-h-[400px]">
+                       <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '400px', overflowY: 'auto' }}>
                            {/* Positive Feedback */}
                            {analysis.value.positivePoints.length > 0 && (
                                <div>
-                                   <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-3">Strengths</p>
-                                   <div className="space-y-2">
+                                   <p className="metric-sublabel" style={{ color: '#4ade80', marginBottom: '0.5rem' }}>Strengths</p>
+                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                    {analysis.value.positivePoints.map((point, idx) => (
-                                        <div key={`pos-${idx}`} className="flex gap-3 items-start">
-                                            <span className="text-green-500 mt-0.5 text-xs">✨</span>
-                                            <p className="text-gray-300 text-sm">{point}</p>
+                                        <div key={`pos-${idx}`} style={{ display: 'flex', gap: '10px', alignItems: 'start' }}>
+                                            <span style={{ color: '#4ade80', fontSize: '0.8rem', marginTop: '2px' }}>✨</span>
+                                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>{point}</p>
                                         </div>
                                    ))}
                                    </div>
@@ -523,53 +521,63 @@ export function SessionManager() {
                            {/* Unclear Words */}
                            {transcript.value?.words && transcript.value.words.some(w => w.score < 0.7) && (
                                <div>
-                                   <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3">Pronunciation Check</p>
-                                   <div className="flex flex-wrap gap-2 mb-2">
+                                   <p className="metric-sublabel" style={{ color: '#ef4444', marginBottom: '0.5rem' }}>Pronunciation Check</p>
+                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                        {transcript.value.words.filter(w => w.score < 0.7).map((w, i) => (
-                                           <span key={i} className="text-xs px-2 py-1 bg-red-500/10 text-red-300 rounded border border-red-500/20">
-                                               {w.word} <span className="opacity-50 ml-1">{Math.round(w.score*100)}%</span>
+                                           <span key={i} style={{ 
+                                               fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px',
+                                               background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)' 
+                                            }}>
+                                               {w.word}
                                            </span>
                                        ))}
                                    </div>
+                                   <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '6px' }}>
+                                       Low confidence detected. Try articulating these words more clearly.
+                                   </p>
                                </div>
                            )}
 
                            {/* Improvements */}
                            <div>
-                               <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-3">Tips & Suggestions</p>
-                               <div className="space-y-3">
+                               <p className="metric-sublabel" style={{ color: '#fbbf24', marginBottom: '0.5rem' }}>Tips & Suggestions</p>
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                {analysis.value.issues.length > 0 ? (
                                    analysis.value.issues.map((issue, idx) => (
-                                       <div key={idx} className="bg-black/20 p-3 rounded-lg border border-white/5">
-                                           <div className="flex gap-2 items-center mb-1">
-                                                <span className="text-xs">{issue.category === 'confidence' ? '🛡️' : issue.category === 'clarity' ? '👁️' : '💡'}</span>
-                                                <span className="text-xs font-bold text-gray-400 uppercase">{issue.type}</span>
+                                       <div key={idx} style={{ 
+                                           background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)'
+                                       }}>
+                                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '0.8rem' }}>{issue.category === 'confidence' ? '🛡️' : issue.category === 'clarity' ? '👁️' : '💡'}</span>
+                                                <span className="metric-sublabel">{issue.type}</span>
                                            </div>
-                                           <p className="text-gray-300 text-sm mb-1">{issue.message}</p>
+                                           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0 0 4px 0' }}>{issue.message}</p>
                                            {issue.replacement && (
-                                               <p className="text-xs text-gray-500">Try instead: <span className="text-blue-400 font-mono">{issue.replacement}</span></p>
+                                               <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: 0 }}>
+                                                   Try instead: <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{issue.replacement}</span>
+                                               </p>
                                            )}
                                        </div>
                                     ))
                                 ) : (
-                                    <p className="text-sm text-gray-500 italic">No specific grammar issues found. Keep it up!</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No specific grammar issues found. Keep it up!</p>
                                 )}
                                 </div>
                             </div>
                         </div>
-                    </div>
+                   </div>
                 )}
             </div>
             
           </div>
           ) : (
-            <div className="p-8 bg-red-500/10 rounded-xl border border-red-500/20 text-center mb-6">
-                <p className="text-red-400 font-bold mb-1">Analysis Failed</p>
-                <p className="text-sm text-gray-400">{statusMsg.value}</p>
+            <div style={{ padding: '2rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', textAlign: 'center', marginBottom: '1.5rem' }}>
+                <p style={{ color: '#fca5a5', fontWeight: 'bold', marginBottom: '0.5rem' }}>Analysis Failed</p>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{statusMsg.value}</p>
             </div>
           )}
 
-            <div className="mt-8 text-center">
+            <div style={{ marginTop: "3rem", textAlign: "center" }}>
                <button className="btn-primary" onClick={handleRetry}>
                  Start New Session
                </button>
