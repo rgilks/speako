@@ -393,180 +393,186 @@ export function SessionManager() {
       )}
 
       {view.value === "results" && (
-        <div className="card-glass animate-fade-in mx-auto" style={{ width: "100%", maxWidth: "600px", textAlign: "left" }}>
-          <h2 className="heading-lg mb-6 text-center">Session Results</h2>
-          {metrics.value ? (
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            {/* 1. Words */}
-            <div className="metric-item accent-blue" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-              <span className="metric-value" style={{ fontSize: '2.5rem' }}>{metrics.value.word_count}</span>
-            </div>
-            
-            {/* 2. WPM */}
-             <div className="metric-item accent-purple" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-              <span className="metric-value" style={{ fontSize: '2.5rem' }}>
-                {lastDuration.value > 0 ? Math.round(metrics.value.word_count / (lastDuration.value / 60)) : 0}
-              </span>
-              <span className="metric-label" style={{ opacity: 0.7, fontSize: '0.85rem', letterSpacing: '0.05em' }}>WPM</span>
-            </div>
-
-            {/* 3. Clarity Score (New) */}
-            {analysis.value && (
-                <div className="metric-item" style={{ 
-                    padding: '1.5rem', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
-                    background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                    border: '1px solid #fde68a',
-                    color: '#b45309'
-                }}>
-                    <span className="metric-value" style={{ fontSize: '2.5rem', color: analysis.value.clarityScore > 70 ? '#059669' : '#d97706' }}>
-                        {analysis.value.clarityScore}
-                    </span>
-                    <span className="metric-label" style={{ opacity: 0.8, fontSize: '0.85rem', letterSpacing: '0.05em', color: '#92400e' }}>Clarity Score</span>
-                </div>
-            )}
-
-            {/* 4. Pronunciation (New) */}
-            {metrics.value.pronunciation_score !== undefined && (
-                <div className="metric-item" style={{ 
-                    padding: '1.5rem', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
-                    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                    border: '1px solid #bbf7d0',
-                    color: '#15803d'
-                }}>
-                    <span className="metric-value" style={{ fontSize: '2.5rem', color: metrics.value.pronunciation_score > 80 ? '#15803d' : metrics.value.pronunciation_score > 60 ? '#ca8a04' : '#b91c1c' }}>
-                        {metrics.value.pronunciation_score}%
-                    </span>
-                    <span className="metric-label" style={{ opacity: 0.8, fontSize: '0.85rem', letterSpacing: '0.05em', color: '#166534' }}>Pronunciation</span>
-                </div>
-            )}
-
-            {/* 5. CEFR Level */}
-             {metrics.value.cefr_level && (
-              <div className="metric-item accent-green" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="metric-value" style={{ fontSize: '2.5rem', lineHeight: '1', marginBottom: '0.25rem' }}>{metrics.value.cefr_level}</span>
-                <span className="metric-label" style={{ opacity: 0.8, fontSize: '0.85rem', letterSpacing: '0.05em' }}>CEFR Level</span>
+        <div className="card-glass animate-fade-in mx-auto" style={{ width: "100%", maxWidth: "800px", textAlign: "left" }}>
+          <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
+              <div>
+                <h2 className="heading-lg mb-1">Session Results</h2>
+                <p className="text-muted text-sm">Great job! Here's how you performed.</p>
               </div>
-            )}
+              <div className="text-right">
+                <span className="block text-3xl font-bold text-white">{lastDuration.value > 0 ? new Date(lastDuration.value * 1000).toISOString().substr(14, 5) : "00:00"}</span>
+                <span className="text-xs uppercase tracking-wider text-gray-500 font-bold">Duration</span>
+              </div>
+          </div>
+
+          {metrics.value ? (
+          <div className="flex flex-col gap-6">
             
-            {/* Vocabulary Stats (Full Width) */}
-            <div className="col-span-2 grid grid-cols-2 py-4 border-t border-gray-100 mt-2">
-                 <div className="text-center px-4 border-r border-gray-200">
-                     <span className="block text-xl font-bold text-gray-700">{metrics.value.unique_words}</span>
-                     <span className="text-[10px] uppercase tracking-wider text-gray-400">Unique Words</span>
+            {/* Top Row: Primary Scores */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Pronunciation */}
+                <div className="metric-item relative overflow-hidden group border border-white/5 bg-white/5">
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative z-10 flex flex-col items-center justify-center py-4">
+                        <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-green-400 to-green-600 mb-1">
+                            {metrics.value.pronunciation_score ?? 0}%
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest text-green-400/80">Pronunciation</span>
+                    </div>
+                </div>
+
+                {/* Clarity */}
+                <div className="metric-item relative overflow-hidden group border border-white/5 bg-white/5">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative z-10 flex flex-col items-center justify-center py-4">
+                        <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-amber-400 to-amber-600 mb-1">
+                            {analysis.value?.clarityScore ?? 0}
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest text-amber-400/80">Clarity Score</span>
+                    </div>
+                </div>
+
+                {/* CEFR */}
+                <div className="metric-item relative overflow-hidden group border border-white/5 bg-white/5">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative z-10 flex flex-col items-center justify-center py-4">
+                        <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-blue-400 to-blue-600 mb-1">
+                            {metrics.value.cefr_level}
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest text-blue-400/80">CEFR Level</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Secondary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/5 rounded-xl p-4 border border-white/5">
+                 <div className="text-center p-2">
+                     <span className="block text-2xl font-bold text-gray-200">{metrics.value.word_count}</span>
+                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Total Words</span>
                  </div>
-                 <div className="text-center px-4">
-                     <span className="block text-xl font-bold text-gray-700">{metrics.value.complex_words}</span>
-                     <span className="text-[10px] uppercase tracking-wider text-gray-400">Complex Words</span>
+                 <div className="text-center p-2 border-l border-white/5">
+                     <span className="block text-2xl font-bold text-gray-200">
+                        {lastDuration.value > 0 ? Math.round(metrics.value.word_count / (lastDuration.value / 60)) : 0}
+                     </span>
+                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">WPM</span>
+                 </div>
+                 <div className="text-center p-2 border-l border-white/5">
+                     <span className="block text-2xl font-bold text-gray-200">{metrics.value.unique_words}</span>
+                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Unique</span>
+                 </div>
+                 <div className="text-center p-2 border-l border-white/5">
+                     <span className="block text-2xl font-bold text-gray-200">{metrics.value.complex_words}</span>
+                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Complex</span>
                  </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+                {/* Transcript */}
+                <div className="bg-black/20 rounded-xl p-6 border border-white/5">
+                    <div className="flex justify-between items-center mb-4">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Transcript</p>
+                        <div className="flex gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span className="text-[10px] text-gray-500 uppercase">Unclear</span>
+                            <span className="w-2 h-2 rounded-full bg-amber-500 ml-2"></span>
+                            <span className="text-[10px] text-gray-500 uppercase">Hesitant</span>
+                        </div>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed text-lg font-light max-h-[300px] overflow-y-auto pr-2" style={{ wordWrap: 'break-word' }}>
+                        {transcript.value?.words && transcript.value.words.length > 0 ? (
+                            transcript.value.words.map((w, i) => (
+                                <Fragment key={i}>
+                                    <span title={`Confidence: ${Math.round(w.score * 100)}%`} 
+                                        className={`transition-colors duration-200 ${w.score < 0.7 ? 'text-red-400 border-b border-red-500/30' : w.score < 0.85 ? 'text-amber-200' : ''}`}
+                                        style={{ cursor: 'help' }}>
+                                        {w.word}
+                                    </span>
+                                    {" "}
+                                </Fragment>
+                            ))
+                        ) : (
+                            transcript.value?.text || ""
+                        )}
+                    </p>
+                </div>
+
+                {/* Teacher's Notes */}
+                {analysis.value && (
+                   <div className="rounded-xl border border-white/10 overflow-hidden bg-white/5 flex flex-col">
+                       <div className="bg-white/5 px-6 py-4 border-b border-white/5 flex justify-between items-center">
+                           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Teacher's Report</p>
+                           <span className="text-xl">👨‍🏫</span>
+                       </div>
+                       
+                       <div className="p-6 flex flex-col gap-6 flex-1 overflow-y-auto max-h-[400px]">
+                           {/* Positive Feedback */}
+                           {analysis.value.positivePoints.length > 0 && (
+                               <div>
+                                   <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-3">Strengths</p>
+                                   <div className="space-y-2">
+                                   {analysis.value.positivePoints.map((point, idx) => (
+                                        <div key={`pos-${idx}`} className="flex gap-3 items-start">
+                                            <span className="text-green-500 mt-0.5 text-xs">✨</span>
+                                            <p className="text-gray-300 text-sm">{point}</p>
+                                        </div>
+                                   ))}
+                                   </div>
+                               </div>
+                           )}
+
+                           {/* Unclear Words */}
+                           {transcript.value?.words && transcript.value.words.some(w => w.score < 0.7) && (
+                               <div>
+                                   <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3">Pronunciation Check</p>
+                                   <div className="flex flex-wrap gap-2 mb-2">
+                                       {transcript.value.words.filter(w => w.score < 0.7).map((w, i) => (
+                                           <span key={i} className="text-xs px-2 py-1 bg-red-500/10 text-red-300 rounded border border-red-500/20">
+                                               {w.word} <span className="opacity-50 ml-1">{Math.round(w.score*100)}%</span>
+                                           </span>
+                                       ))}
+                                   </div>
+                               </div>
+                           )}
+
+                           {/* Improvements */}
+                           <div>
+                               <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-3">Tips & Suggestions</p>
+                               <div className="space-y-3">
+                               {analysis.value.issues.length > 0 ? (
+                                   analysis.value.issues.map((issue, idx) => (
+                                       <div key={idx} className="bg-black/20 p-3 rounded-lg border border-white/5">
+                                           <div className="flex gap-2 items-center mb-1">
+                                                <span className="text-xs">{issue.category === 'confidence' ? '🛡️' : issue.category === 'clarity' ? '👁️' : '💡'}</span>
+                                                <span className="text-xs font-bold text-gray-400 uppercase">{issue.type}</span>
+                                           </div>
+                                           <p className="text-gray-300 text-sm mb-1">{issue.message}</p>
+                                           {issue.replacement && (
+                                               <p className="text-xs text-gray-500">Try instead: <span className="text-blue-400 font-mono">{issue.replacement}</span></p>
+                                           )}
+                                       </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-gray-500 italic">No specific grammar issues found. Keep it up!</p>
+                                )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+            
           </div>
           ) : (
-            <div className="p-4 bg-red-50 rounded-xl border border-red-100 text-center mb-6">
-                <p className="text-red-500 font-bold">Metrics Unavailable</p>
-                <p className="text-xs text-red-400">{statusMsg.value || "Analysis failed"}</p>
+            <div className="p-8 bg-red-500/10 rounded-xl border border-red-500/20 text-center mb-6">
+                <p className="text-red-400 font-bold mb-1">Analysis Failed</p>
+                <p className="text-sm text-gray-400">{statusMsg.value}</p>
             </div>
           )}
 
-          {/* Transcript Section */}
-          <div style={{ padding: "2rem", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", marginBottom: "2rem" }}>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Transcript</p>
-            <p className="text-gray-800 leading-relaxed text-lg font-medium" style={{ wordWrap: 'break-word', overflowWrap: 'break-word', color: '#1f2937' }}>
-                {transcript.value?.words && transcript.value.words.length > 0 ? (
-                    transcript.value.words.map((w, i) => (
-                        <Fragment key={i}>
-                            <span title={`Confidence: ${Math.round(w.score * 100)}%`} 
-                                style={{ 
-                                    color: w.score < 0.7 ? '#ef4444' : w.score < 0.9 ? '#d97706' : 'inherit',
-                                    textDecoration: w.score < 0.7 ? 'underline decoration-red-300 decoration-wavy' : 'none',
-                                    cursor: 'help'
-                                }}>
-                                {w.word}
-                            </span>
-                            {" "}
-                        </Fragment>
-                    ))
-                ) : (
-                    transcript.value?.text || ""
-                )}
-            </p>
-          </div>
-
-          {/* Teacher's Notes (Feedback) */}
-           {analysis.value && metrics.value && (
-               <div className="teachers-notes" style={{
-                   background: '#fff',
-                   borderRadius: '16px',
-                   border: '1px solid #e5e7eb',
-                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                   overflow: 'hidden'
-               }}>
-                   <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                       <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">Teacher's Notes</p>
-                       <span style={{ fontSize: '1.2rem' }}>👨‍🏫</span>
-                   </div>
-                   
-                   <div className="p-6 flex flex-col gap-4 text-gray-800">
-                       {/* Positive Feedback */}
-                       {analysis.value.positivePoints.length > 0 && (
-                           <div className="mb-2">
-                               <p className="text-xs font-bold text-green-600 uppercase mb-2">Strengths</p>
-                               {analysis.value.positivePoints.map((point, idx) => (
-                                    <div key={`pos-${idx}`} className="flex gap-3 items-center mb-2">
-                                        <span className="text-green-500">✨</span>
-                                        <p className="text-gray-800 text-sm font-medium">{point}</p>
-                                    </div>
-                               ))}
-                           </div>
-                       )}
-
-                       {/* Unclear Words (Pronunciation Issues) */}
-                       {transcript.value?.words && transcript.value.words.some(w => w.score < 0.7) && (
-                           <div className="mb-2">
-                               <p className="text-xs font-bold text-red-600 uppercase mb-2">Unclear Pronunciation</p>
-                               <div className="flex flex-wrap gap-2">
-                                   {transcript.value.words.filter(w => w.score < 0.7).map((w, i) => (
-                                       <span key={i} className="text-sm px-2 py-1 bg-red-50 text-red-700 rounded border border-red-100">
-                                           "{w.word}" <span className="text-xs opacity-75">({Math.round(w.score*100)}%)</span>
-                                       </span>
-                                   ))}
-                               </div>
-                               <p className="text-xs text-gray-500 mt-1">These words were hard to hear. Try articulating them more clearly.</p>
-                           </div>
-                       )}
-
-                       {/* Improvements */}
-                       <div>
-                           <p className="text-xs font-bold text-amber-600 uppercase mb-2">Areas for Improvement</p>
-                           {analysis.value.issues.length > 0 ? (
-                               analysis.value.issues.map((issue, idx) => (
-                                   <div key={idx} className="flex gap-3 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                                       <span className="mt-0.5">{issue.category === 'confidence' ? '🛡️' : issue.category === 'clarity' ? '👁️' : issue.type === 'suggestion' ? '💡' : '⚡️'}</span>
-                                       <div>
-                                           <p className="text-gray-800 text-sm font-medium">{issue.message}</p>
-                                           {issue.replacement && (
-                                               <p className="text-xs text-gray-500 mt-1">Try: <span className="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{issue.replacement}</span></p>
-                                           )}
-                                       </div>
-                                   </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-gray-500 italic">No specific grammar issues detected.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div style={{ marginTop: "2rem", textAlign: "center" }}>
-               <button className="btn-secondary" onClick={handleRetry}>Start New Session</button>
+            <div className="mt-8 text-center">
+               <button className="btn-primary" onClick={handleRetry}>
+                 Start New Session
+               </button>
             </div>
         </div>
       )}
