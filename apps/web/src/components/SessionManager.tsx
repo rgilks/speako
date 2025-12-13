@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useCallback } from "preact/hooks";
 import { Fragment } from "preact";
 import { env } from "@xenova/transformers";
 import { LocalTranscriber } from "../logic/local-transcriber";
@@ -8,6 +8,8 @@ import * as wasm from "../../../../crates/client/pkg/speako_client";
 
 import { TranscriptionResult } from "../logic/transcriber";
 import { GrammarChecker, GrammarIssue } from "../logic/grammar-checker";
+import { AudioLevelIndicator } from "./AudioLevelIndicator";
+import { DevicePicker } from "./DevicePicker";
 
 // Transcribers can be singletons for this session manager
 const localTranscriber = new LocalTranscriber();
@@ -19,6 +21,9 @@ export function SessionManager() {
   const statusMsg = useSignal("");
   const lastDuration = useSignal(0);
   const startTime = useRef(0);
+  const elapsedTime = useSignal(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const selectedDeviceId = useSignal<string>("");
 
   // WASM module is auto-initialized by vite-plugin-wasm via Top-Level Await
   useEffect(() => {
@@ -59,27 +64,43 @@ export function SessionManager() {
       metrics.value = null;
       statusMsg.value = "Starting...";
       startTime.current = Date.now();
+      elapsedTime.value = 0;
       
+      // Start elapsed timer
+      timerRef.current = setInterval(() => {
+        elapsedTime.value = Math.floor((Date.now() - startTime.current) / 1000);
+      }, 1000);
       
       // Select transcriber based on config
       // Default to Local as it's the core feature.
-      console.log("[SessionManager] Using LocalTranscriber.");
+      console.log("[SessionManager] Using LocalTranscriber.", selectedDeviceId.value ? `Device: ${selectedDeviceId.value}` : "(default)");
       localTranscriber.onProgress = (msg) => { statusMsg.value = msg; };
-      await localTranscriber.start();
+      await localTranscriber.start(selectedDeviceId.value || undefined);
       
-      statusMsg.value = "Recording... (Speak now)";
+      statusMsg.value = "Speak now...";
     } catch (e) {
       console.error("[SessionManager] Error starting transcription:", e);
       statusMsg.value = `Error starting: ${e}`;
       view.value = "idle";
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   };
 
   const handleStop = async () => {
-    console.log("[SessionManager] User stopped recording."); // Added log
+    console.log("[SessionManager] User stopped recording.");
+    
+    // Stop elapsed timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
     view.value = "processing";
-    const durationSec = (Date.now() - startTime.current) / 1000; // Original duration calculation
-    lastDuration.value = durationSec; // Original duration update
+    const durationSec = (Date.now() - startTime.current) / 1000;
+    lastDuration.value = durationSec;
     
     // Stop recording and get text
     let result: TranscriptionResult = { text: "", words: [] };
@@ -182,6 +203,12 @@ export function SessionManager() {
           
            {/* Topic Generator Card */}
           <div className="card-glass" style={{ margin: "0 auto 2rem auto", maxWidth: "400px", textAlign: 'left', padding: '1.5rem' }}>
+              {/* Device Picker */}
+              <DevicePicker 
+                selectedDeviceId={selectedDeviceId.value}
+                onDeviceChange={(id) => { selectedDeviceId.value = id; }}
+              />
+              
               <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-secondary)' }}>Speaking Topic</span>
                  <button onClick={generateTopic} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title="New Topic">🔄</button>
@@ -205,20 +232,37 @@ export function SessionManager() {
       {(view.value === "recording" || view.value === "processing") && (
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
              {view.value === "processing" ? (
-               <div style={{ width: 80, height: 80, border: "4px solid var(--accent-primary)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite", margin: '0 auto 3rem auto' }}></div>
+               <>
+                 <div style={{ width: 80, height: 80, border: "4px solid var(--accent-primary)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite", margin: '0 auto 2rem auto' }}></div>
+                 <p className="heading-lg mb-2">Analyzing...</p>
+                 <p className="text-muted mb-10" style={{ minHeight: '1.5em' }}>{statusMsg.value}</p>
+               </>
              ) : (
-                <div className="visualizer-circle animate-pulse" style={{margin: '0 auto 3rem auto'}}>
-                    <span style={{ fontSize: "3rem" }}>🎙️</span>
+                <div className="recording-panel">
+                    {/* Elapsed Timer */}
+                    <p className="elapsed-timer" style={{ textAlign: 'center' }}>
+                      {Math.floor(elapsedTime.value / 60).toString().padStart(2, '0')}:
+                      {(elapsedTime.value % 60).toString().padStart(2, '0')}
+                    </p>
+                    
+                    {/* Audio Level Indicator */}
+                    <AudioLevelIndicator 
+                      getLevel={() => localTranscriber.getRecorder().getAudioLevel()} 
+                      barCount={7}
+                    />
+                    
+                    {/* Status */}
+                    <p className="text-muted" style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}>
+                      {statusMsg.value}
+                    </p>
+                    
+                    {/* Stop Button */}
+                    <div style={{ textAlign: 'center' }}>
+                      <button className="btn-stop" onClick={handleStop}>Stop Recording</button>
+                    </div>
                 </div>
              )}
              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-             
-             <p className="heading-lg mb-2">{view.value === "processing" ? "Analyzing..." : "Listening..."}</p>
-             <p className="text-muted mb-10" style={{ minHeight: '1.5em' }}>{statusMsg.value}</p>
-             
-             {view.value === "recording" && (
-                <button className="btn-stop" onClick={handleStop}>Stop Analysis</button>
-             )}
         </div>
       )}
 
