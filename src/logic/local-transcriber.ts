@@ -75,6 +75,7 @@ class ModelSingleton {
             // Model is ready
             updateLoadingState({ progress: 95 });
           }
+          
           progressCallback?.(data);
         },
         device: 'webgpu',
@@ -211,8 +212,8 @@ export class LocalTranscriber implements ITranscriber {
     const url = URL.createObjectURL(audioBlob);
     
     try {
-      // Transcribe the audio without timestamps (simpler and more reliable)
-      const output = await this.model(url);
+      // Transcribe the audio with timestamps to get word-level confidence
+      const output = await this.model(url, { return_timestamps: true });
       URL.revokeObjectURL(url);
       
       let text = "";

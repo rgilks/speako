@@ -457,12 +457,11 @@ export function SessionManager() {
             )}
             
             {/* Vocabulary Stats (Full Width) */}
-            <div className="col-span-2 flex gap-4 justify-center py-4 border-t border-gray-100 mt-2">
-                 <div className="text-center px-4">
+            <div className="col-span-2 grid grid-cols-2 py-4 border-t border-gray-100 mt-2">
+                 <div className="text-center px-4 border-r border-gray-200">
                      <span className="block text-xl font-bold text-gray-700">{metrics.value.unique_words}</span>
                      <span className="text-[10px] uppercase tracking-wider text-gray-400">Unique Words</span>
                  </div>
-                 <div className="w-px bg-gray-200"></div>
                  <div className="text-center px-4">
                      <span className="block text-xl font-bold text-gray-700">{metrics.value.complex_words}</span>
                      <span className="text-[10px] uppercase tracking-wider text-gray-400">Complex Words</span>
@@ -514,7 +513,7 @@ export function SessionManager() {
                        <span style={{ fontSize: '1.2rem' }}>👨‍🏫</span>
                    </div>
                    
-                   <div className="p-6 flex flex-col gap-4">
+                   <div className="p-6 flex flex-col gap-4 text-gray-800">
                        {/* Positive Feedback */}
                        {analysis.value.positivePoints.length > 0 && (
                            <div className="mb-2">
@@ -522,7 +521,7 @@ export function SessionManager() {
                                {analysis.value.positivePoints.map((point, idx) => (
                                     <div key={`pos-${idx}`} className="flex gap-3 items-center mb-2">
                                         <span className="text-green-500">✨</span>
-                                        <p className="text-gray-700 text-sm">{point}</p>
+                                        <p className="text-gray-800 text-sm font-medium">{point}</p>
                                     </div>
                                ))}
                            </div>

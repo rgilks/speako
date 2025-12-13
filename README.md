@@ -11,6 +11,7 @@ Speako is a local-first application designed for practicing exam-style English s
 - **🧠 Smart Analysis**:
     - **Grammar Check**: Detects hedging ("I guess"), passive voice, and weak vocabulary.
     - **Clarity Score**: Real-time evaluation of speaking clarity and confidence.
+    - **Pronunciation**: Confidence-based scoring with "Unclear Word" detection.
     - **Positive Reinforcement**: Highlights strong vocabulary usage.
 - **🎯 Exam Tools**:
     - **Topic Generator**: Random discussion prompts.
