@@ -4,9 +4,10 @@ import { Fragment } from "preact";
 import { env } from "@huggingface/transformers";
 import { LocalTranscriber, subscribeToLoadingState, ModelLoadingState } from "../logic/local-transcriber";
 import { computeMetrics } from "../logic/metrics-calculator";
+import { checkWebGPU } from "../logic/webgpu-check";
 
 import { TranscriptionResult } from "../logic/transcriber";
-import { GrammarChecker, GrammarIssue } from "../logic/grammar-checker";
+import { GrammarChecker, AnalysisResult } from "../logic/grammar-checker";
 import { AudioLevelIndicator } from "./AudioLevelIndicator";
 import { DevicePicker } from "./DevicePicker";
 
@@ -16,13 +17,21 @@ export function SessionManager() {
   const view = useSignal<"idle" | "recording" | "processing" | "results">("idle");
   const transcript = useSignal<TranscriptionResult | null>(null);
   const metrics = useSignal<any>(null);
-  const grammarIssues = useSignal<GrammarIssue[]>([]);
+  const analysis = useSignal<AnalysisResult | null>(null);
   const statusMsg = useSignal("");
   const lastDuration = useSignal(0);
   const startTime = useRef(0);
   const elapsedTime = useSignal(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedDeviceId = useSignal<string>("");
+  const webGpuStatus = useSignal<{ isAvailable: boolean; message?: string } | null>(null);
+  
+  // Check WebGPU support on mount
+  useEffect(() => {
+    checkWebGPU().then(status => {
+      webGpuStatus.value = status;
+    });
+  }, []);
   
   // Model loading state
   const modelLoadingState = useSignal<ModelLoadingState>({
@@ -32,8 +41,6 @@ export function SessionManager() {
     error: null,
   });
 
-
-  
   // Subscribe to model loading state
   useEffect(() => {
     const unsubscribe = subscribeToLoadingState((state) => {
@@ -148,7 +155,7 @@ export function SessionManager() {
     try {
       console.log("[SessionManager] Calculating metrics...");
       
-      const metricsResult = computeMetrics(result.text);
+      const metricsResult = computeMetrics(result.text, result.words);
       console.log("[SessionManager] Metrics calculated:", metricsResult);
       
       metrics.value = {
@@ -158,15 +165,16 @@ export function SessionManager() {
         cefr_description: "",
         fluency_score: 0,
         unique_words: metricsResult.unique_words,
-        complex_words: metricsResult.complex_words
+        complex_words: metricsResult.complex_words,
+        pronunciation_score: metricsResult.pronunciation_score
       };
       
       // Calculate processing time
       console.log(`[SessionManager] Processing complete in ${Math.round(Date.now() - startTime.current)}ms`);
       
       // Run Grammar Check
-      const issues = GrammarChecker.check(result.text);
-      grammarIssues.value = issues;
+      const analysisResult = GrammarChecker.check(result.text);
+      analysis.value = analysisResult;
       
       view.value = "results";
     } catch (e) {
@@ -183,7 +191,7 @@ export function SessionManager() {
     view.value = "idle";
     transcript.value = null;
     metrics.value = null;
-    grammarIssues.value = [];
+    analysis.value = null;
     statusMsg.value = "";
   };
 
@@ -200,10 +208,73 @@ export function SessionManager() {
           {/* Model Loading Progress */}
           {!modelLoadingState.value.isLoaded && (
             <div className="card-glass" style={{ margin: "0 auto 2rem auto", maxWidth: "400px", padding: '1.5rem' }}>
-              <div style={{ marginBottom: '0.75rem' }}>
+              <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-secondary)' }}>
                   {modelLoadingState.value.error ? '⚠️ Error' : '🧠 AI Model'}
                 </span>
+                
+                {webGpuStatus.value && (() => {
+                    const isAvailable = webGpuStatus.value.isAvailable;
+                    const statusText = isAvailable 
+                        ? "WebGPU is active. AI inference is running locally on your graphics card for maximum speed." 
+                        : (webGpuStatus.value.message || "WebGPU unavailable.");
+                    
+                    return (
+                        <div 
+                            className="tooltip-container" 
+                            style={{ position: 'relative', display: 'inline-block', cursor: 'help' }}
+                            title={statusText}
+                            onClick={() => alert(`System Status:\n\n${isAvailable ? '✅' : '⚠️'} ${statusText}`)}
+                        >
+                            <span style={{ 
+                                fontSize: '0.7rem', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                background: isAvailable ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                color: isAvailable ? '#10b981' : '#ef4444',
+                                fontWeight: '600',
+                                border: `1px solid ${isAvailable ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                pointerEvents: 'none' // Let clicks pass to container
+                            }}>
+                                {isAvailable ? '⚡️ WebGPU' : '🐢 CPU'}
+                            </span>
+                             
+                             <div className="tooltip" style={{ 
+                                 position: 'absolute', 
+                                 bottom: '125%', 
+                                 right: -10, 
+                                 width: '220px', 
+                                 padding: '8px 12px', 
+                                 background: 'rgba(30, 30, 35, 0.95)',
+                                 backdropFilter: 'blur(4px)',
+                                 color: 'white', 
+                                 fontSize: '0.75rem', 
+                                 lineHeight: '1.4',
+                                 borderRadius: '6px', 
+                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                 border: '1px solid rgba(255,255,255,0.1)',
+                                 pointerEvents: 'none',
+                                 zIndex: 100,
+                                 display: 'none',
+                                 textAlign: 'center'
+                             }}>
+                                 {statusText}
+                                 <div style={{ // Arrow
+                                     position: 'absolute',
+                                     top: '100%',
+                                     right: '25px',
+                                     borderWidth: '5px',
+                                     borderStyle: 'solid',
+                                     borderColor: 'rgba(30, 30, 35, 0.95) transparent transparent transparent'
+                                 }}/>
+                             </div>
+
+                             <style>{`
+                                 .tooltip-container:hover .tooltip { display: block !important; animation: fadeIn 0.2s ease-out; }
+                             `}</style>
+                        </div>
+                    );
+                })()}
               </div>
               
               {modelLoadingState.value.error ? (
@@ -324,38 +395,79 @@ export function SessionManager() {
       {view.value === "results" && (
         <div className="card-glass animate-fade-in mx-auto" style={{ width: "100%", maxWidth: "600px", textAlign: "left" }}>
           <h2 className="heading-lg mb-6 text-center">Session Results</h2>
-          
           {metrics.value ? (
-          <div className="metric-grid grid grid-cols-2 gap-4 mb-6">
-            <div className="metric-item accent-blue">
-              <span className="metric-value">{metrics.value.word_count}</span>
-              <span className="metric-label">Words</span>
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            {/* 1. Words */}
+            <div className="metric-item accent-blue" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <span className="metric-value" style={{ fontSize: '2.5rem' }}>{metrics.value.word_count}</span>
             </div>
             
-             <div className="metric-item accent-purple">
-              <span className="metric-value">
+            {/* 2. WPM */}
+             <div className="metric-item accent-purple" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <span className="metric-value" style={{ fontSize: '2.5rem' }}>
                 {lastDuration.value > 0 ? Math.round(metrics.value.word_count / (lastDuration.value / 60)) : 0}
               </span>
-              <span className="metric-label">WPM</span>
+              <span className="metric-label" style={{ opacity: 0.7, fontSize: '0.85rem', letterSpacing: '0.05em' }}>WPM</span>
             </div>
 
-             {metrics.value.cefr_level && (
-              <div className="col-span-2 metric-item accent-green">
-                <span className="metric-value" style={{ fontSize: '3rem' }}>{metrics.value.cefr_level}</span>
-                <span className="metric-label">Estimated CEFR Level</span>
-                
-                <div className="metric-footer">
-                    <div className="metric-subitem">
-                        <span className="metric-subvalue">{metrics.value.unique_words}</span>
-                        <span className="metric-sublabel">Unique Words</span>
-                    </div>
-                    <div className="metric-subitem">
-                        <span className="metric-subvalue">{metrics.value.complex_words}</span>
-                        <span className="metric-sublabel">Complex Words</span>
-                    </div>
+            {/* 3. Clarity Score (New) */}
+            {analysis.value && (
+                <div className="metric-item" style={{ 
+                    padding: '1.5rem', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                    border: '1px solid #fde68a',
+                    color: '#b45309'
+                }}>
+                    <span className="metric-value" style={{ fontSize: '2.5rem', color: analysis.value.clarityScore > 70 ? '#059669' : '#d97706' }}>
+                        {analysis.value.clarityScore}
+                    </span>
+                    <span className="metric-label" style={{ opacity: 0.8, fontSize: '0.85rem', letterSpacing: '0.05em', color: '#92400e' }}>Clarity Score</span>
                 </div>
+            )}
+
+            {/* 4. Pronunciation (New) */}
+            {metrics.value.pronunciation_score !== undefined && (
+                <div className="metric-item" style={{ 
+                    padding: '1.5rem', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                    border: '1px solid #bbf7d0',
+                    color: '#15803d'
+                }}>
+                    <span className="metric-value" style={{ fontSize: '2.5rem', color: metrics.value.pronunciation_score > 80 ? '#15803d' : metrics.value.pronunciation_score > 60 ? '#ca8a04' : '#b91c1c' }}>
+                        {metrics.value.pronunciation_score}%
+                    </span>
+                    <span className="metric-label" style={{ opacity: 0.8, fontSize: '0.85rem', letterSpacing: '0.05em', color: '#166534' }}>Pronunciation</span>
+                </div>
+            )}
+
+            {/* 5. CEFR Level */}
+             {metrics.value.cefr_level && (
+              <div className="metric-item accent-green" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="metric-value" style={{ fontSize: '2.5rem', lineHeight: '1', marginBottom: '0.25rem' }}>{metrics.value.cefr_level}</span>
+                <span className="metric-label" style={{ opacity: 0.8, fontSize: '0.85rem', letterSpacing: '0.05em' }}>CEFR Level</span>
               </div>
             )}
+            
+            {/* Vocabulary Stats (Full Width) */}
+            <div className="col-span-2 flex gap-4 justify-center py-4 border-t border-gray-100 mt-2">
+                 <div className="text-center px-4">
+                     <span className="block text-xl font-bold text-gray-700">{metrics.value.unique_words}</span>
+                     <span className="text-[10px] uppercase tracking-wider text-gray-400">Unique Words</span>
+                 </div>
+                 <div className="w-px bg-gray-200"></div>
+                 <div className="text-center px-4">
+                     <span className="block text-xl font-bold text-gray-700">{metrics.value.complex_words}</span>
+                     <span className="text-[10px] uppercase tracking-wider text-gray-400">Complex Words</span>
+                 </div>
+            </div>
           </div>
           ) : (
             <div className="p-4 bg-red-50 rounded-xl border border-red-100 text-center mb-6">
@@ -364,15 +476,17 @@ export function SessionManager() {
             </div>
           )}
 
-          <div style={{ padding: "1.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)" }}>
-            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Transcript & Clarity</p>
-            <p className="text-gray-700 leading-relaxed text-lg" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
+          {/* Transcript Section */}
+          <div style={{ padding: "2rem", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", marginBottom: "2rem" }}>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Transcript</p>
+            <p className="text-gray-800 leading-relaxed text-lg font-medium" style={{ wordWrap: 'break-word', overflowWrap: 'break-word', color: '#1f2937' }}>
                 {transcript.value?.words && transcript.value.words.length > 0 ? (
                     transcript.value.words.map((w, i) => (
                         <Fragment key={i}>
                             <span title={`Confidence: ${Math.round(w.score * 100)}%`} 
                                 style={{ 
-                                    color: w.score < 0.7 ? '#ef4444' : w.score < 0.9 ? '#eab308' : 'inherit',
+                                    color: w.score < 0.7 ? '#ef4444' : w.score < 0.9 ? '#d97706' : 'inherit',
+                                    textDecoration: w.score < 0.7 ? 'underline decoration-red-300 decoration-wavy' : 'none',
                                     cursor: 'help'
                                 }}>
                                 {w.word}
@@ -386,33 +500,75 @@ export function SessionManager() {
             </p>
           </div>
 
-                <div style={{ marginTop: "1rem", padding: "1.5rem", background: "rgba(255,193,7,0.1)", borderRadius: "var(--radius-md)", border: "1px solid rgba(255,193,7,0.2)" }}>
-                 <p className="text-xs font-bold text-yellow-600 uppercase mb-3">Feedback Hints</p>
-                 {grammarIssues.value.length > 0 ? (
-                     <div className="flex flex-col gap-2">
-                         {grammarIssues.value.map((issue, idx) => (
-                             <div key={idx} className="flex gap-3 items-start p-2 bg-white/50 rounded-md">
-                                 <span style={{ fontSize: '1.2rem' }}>{issue.type === 'suggestion' ? '💡' : '⚠️'}</span>
-                                 <div>
-                                     <p className="text-sm font-medium text-gray-800">{issue.message}</p>
-                                     {issue.replacement && (
-                                         <p className="text-xs text-gray-500 mt-1">Try: <span className="font-mono text-blue-600">{issue.replacement}</span></p>
-                                     )}
-                                 </div>
-                             </div>
-                         ))}
-                     </div>
-                 ) : (
-                     <div className="flex gap-3 items-center p-2 bg-white/50 rounded-md opacity-75">
-                         <span style={{ fontSize: '1.2rem' }}>✨</span>
-                         <p className="text-sm font-medium text-gray-800">Great job! No obvious grammar issues detected.</p>
-                     </div>
-                 )}
-               </div>
+          {/* Teacher's Notes (Feedback) */}
+           {analysis.value && metrics.value && (
+               <div className="teachers-notes" style={{
+                   background: '#fff',
+                   borderRadius: '16px',
+                   border: '1px solid #e5e7eb',
+                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                   overflow: 'hidden'
+               }}>
+                   <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                       <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">Teacher's Notes</p>
+                       <span style={{ fontSize: '1.2rem' }}>👨‍🏫</span>
+                   </div>
+                   
+                   <div className="p-6 flex flex-col gap-4">
+                       {/* Positive Feedback */}
+                       {analysis.value.positivePoints.length > 0 && (
+                           <div className="mb-2">
+                               <p className="text-xs font-bold text-green-600 uppercase mb-2">Strengths</p>
+                               {analysis.value.positivePoints.map((point, idx) => (
+                                    <div key={`pos-${idx}`} className="flex gap-3 items-center mb-2">
+                                        <span className="text-green-500">✨</span>
+                                        <p className="text-gray-700 text-sm">{point}</p>
+                                    </div>
+                               ))}
+                           </div>
+                       )}
 
-             <div style={{ marginTop: "2rem", textAlign: "center" }}>
-              <button className="btn-secondary" onClick={handleRetry}>Start New Session</button>
-           </div>
+                       {/* Unclear Words (Pronunciation Issues) */}
+                       {transcript.value?.words && transcript.value.words.some(w => w.score < 0.7) && (
+                           <div className="mb-2">
+                               <p className="text-xs font-bold text-red-600 uppercase mb-2">Unclear Pronunciation</p>
+                               <div className="flex flex-wrap gap-2">
+                                   {transcript.value.words.filter(w => w.score < 0.7).map((w, i) => (
+                                       <span key={i} className="text-sm px-2 py-1 bg-red-50 text-red-700 rounded border border-red-100">
+                                           "{w.word}" <span className="text-xs opacity-75">({Math.round(w.score*100)}%)</span>
+                                       </span>
+                                   ))}
+                               </div>
+                               <p className="text-xs text-gray-500 mt-1">These words were hard to hear. Try articulating them more clearly.</p>
+                           </div>
+                       )}
+
+                       {/* Improvements */}
+                       <div>
+                           <p className="text-xs font-bold text-amber-600 uppercase mb-2">Areas for Improvement</p>
+                           {analysis.value.issues.length > 0 ? (
+                               analysis.value.issues.map((issue, idx) => (
+                                   <div key={idx} className="flex gap-3 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                                       <span className="mt-0.5">{issue.category === 'confidence' ? '🛡️' : issue.category === 'clarity' ? '👁️' : issue.type === 'suggestion' ? '💡' : '⚡️'}</span>
+                                       <div>
+                                           <p className="text-gray-800 text-sm font-medium">{issue.message}</p>
+                                           {issue.replacement && (
+                                               <p className="text-xs text-gray-500 mt-1">Try: <span className="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{issue.replacement}</span></p>
+                                           )}
+                                       </div>
+                                   </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No specific grammar issues detected.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ marginTop: "2rem", textAlign: "center" }}>
+               <button className="btn-secondary" onClick={handleRetry}>Start New Session</button>
+            </div>
         </div>
       )}
     </div>

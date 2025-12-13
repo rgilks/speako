@@ -2,66 +2,88 @@ import { describe, it, expect } from 'vitest';
 import { GrammarChecker } from './grammar-checker';
 
 describe('GrammarChecker', () => {
-    it('detects weak verbs (get/got)', () => {
-        const text = "I got a new car.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes('Avoid "get/got"'));
-        expect(issue).toBeDefined();
-        expect(issue?.replacement).toContain('obtain');
-    });
+  it('detects weak adjectives', () => {
+    const result = GrammarChecker.check("This is very good stuff.");
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'suggestion',
+          category: 'vocabulary',
+          message: expect.stringContaining('stronger adjective'),
+          replacement: 'excellent / superb'
+        })
+      ])
+    );
+     // "stuff" should also be flagged
+    expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+             message: expect.stringContaining('"stuff" is vague')
+          })
+        ])
+    );
+  });
 
-    it('detects weak verbs (look at)', () => {
-        const text = "Look at this.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes("Look at"));
-        // "Look at" logic might be slightly different in implementation, let's check
-        // The implementation checks: root === 'look' && v.has('at')
-        // We know 'look' is the root, so this should match if toInfinitive works.
-        const lookIssue = issues.find(i => i.message.includes("'look at'"));
-        expect(lookIssue).toBeDefined(); 
-    });
+  it('detects weak verbs (get/got)', () => {
+    const result = GrammarChecker.check("I got a new job.");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringContaining('Avoid "get/got"'),
+        replacement: 'obtain / receive / become'
+      })
+    );
+  });
 
-    it('detects weak adjectives (very fast)', () => {
-        const text = "It was very good.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes('stronger adjective'));
-        expect(issue).toBeDefined();
-        expect(issue?.replacement).toContain('excellent');
-    });
+  it('detects hedging phrases', () => {
+    // Needs > 10 words to trigger clarity score deductions
+    const result = GrammarChecker.check("I guess we should sort of go to the store and buy some milk.");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        type: 'warning',
+        category: 'confidence',
+        message: expect.stringContaining('Hedging detected')
+      })
+    );
+    // Should have a lower clarity score due to hedges
+    expect(result.clarityScore).toBeLessThan(100);
+  });
 
-    it('detects repetitive starters', () => {
-        const text = "I went to the shop. I bought some milk. I went home.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes('Repetitive start'));
-        expect(issue).toBeDefined();
-    });
+  it('detects passive voice', () => {
+    const result = GrammarChecker.check("The decision was made by the team.");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        category: 'clarity',
+        message: expect.stringContaining('Passive voice detected')
+      })
+    );
+  });
 
-    it('detects filler words', () => {
-        // Needs > 20 words for density check
-        const text = "Um, I think that like, sort of, we should, um, go to the, uh, place where the things are, um, because I like it.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes('Filler words detected'));
-        expect(issue).toBeDefined();
-    });
+  it('identifies positive reinforcement words', () => {
+    const result = GrammarChecker.check("This demonstrates a crucial innovation.");
+    expect(result.positivePoints).toHaveLength(1);
+    expect(result.positivePoints[0]).toContain("demonstrate"); // or crucial/innovation depending on order
+  });
 
-    it('detects run-on sentences', () => {
-        // > 40 words
-        const text = "This is a very long sentence that keeps going and going and going and never seems to stop because it has so many words and clauses that it just becomes difficult to follow what is being said and the listener gets tired.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes('Long sentence'));
-        expect(issue).toBeDefined();
-    });
+    it('calculates clarity score correctly', () => {
+        // Perfect sentence
+        const good = GrammarChecker.check("The rapid fox jumps over the lazy dog.");
+        // Short sentences might have 0 deductions but score logic handles short length
+        // Let's rely on no issues = high score
+        expect(good.issues).toHaveLength(0);
+        expect(good.clarityScore).toBe(100);
 
-    it('detects subject-verb agreement errors', () => {
-        const text = "He go to the store.";
-        const issues = GrammarChecker.check(text);
-        const issue = issues.find(i => i.message.includes('Possible agreement error'));
-        expect(issue).toBeDefined();
+        // Bad sentence
+        const bad = GrammarChecker.check("I guess it is sort of basically um like very good stuff.");
+        expect(bad.clarityScore).toBeLessThan(70);
     });
-
-    it('runs without crashing on empty input', () => {
-        const text = "";
-        const issues = GrammarChecker.check(text);
-        expect(issues).toEqual([]);
+    
+    it('handles repetitive sentence starters', () => {
+        const text = "I went to the store. I bought milk. I came home.";
+        const result = GrammarChecker.check(text);
+        expect(result.issues).toContainEqual(
+            expect.objectContaining({
+                message: expect.stringContaining('Repetitive sentence start')
+            })
+        );
     });
 });

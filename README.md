@@ -7,12 +7,16 @@ Speako is a local-first application designed for practicing exam-style English s
 ## Features
 
 - **🔒 Privacy First**: Voice data is processed locally on your device using `transformers.js`.
-- **⚡️ Ultra-Low Latency**: Instant feedback on speaking metrics (word count, pace, etc.) without server round-trips.
+- **⚡️ Ultra-Low Latency**: Instant feedback on speaking metrics without server round-trips.
+- **🧠 Smart Analysis**:
+    - **Grammar Check**: Detects hedging ("I guess"), passive voice, and weak vocabulary.
+    - **Clarity Score**: Real-time evaluation of speaking clarity and confidence.
+    - **Positive Reinforcement**: Highlights strong vocabulary usage.
 - **🎯 Exam Tools**:
     - **Topic Generator**: Random discussion prompts.
-    - **Local Grammar Check**: Smart client-side NLP (via `compromise.js`) for instant feedback.
-    - **Metrics Analysis**: Real-time analysis of vocabulary complexity and CEFR level estimation.
-- **📱 PWA Ready**: Installable on mobile and desktop with offline support.
+    - **Metrics**: Word count, WPM, and CEFR level estimation.
+- **🚀 WebGPU Optimized**: Uses hardware acceleration for fast in-browser inference.
+- **📱 PWA Ready**: Installable with offline support.
 
 ## Architecture
 

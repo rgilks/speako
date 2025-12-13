@@ -61,10 +61,8 @@ describe('metrics-calculator', () => {
       // cleanWord = "..." -> replace non-alpha -> "" -> continue
       // So word count for metrics purposes (cleaned words) vs raw split might differ?
       // Let's check logic:
-      // wordCount (line 16): split(/\s+/).filter(w => w.length > 0).length. "..." is length 3. So wordCount = 1.
-      // loop (line 23): "..." -> cleaned "". loop continues. uniqueSet is empty.
-      
-      expect(metrics.word_count).toBe(1);
+      // New regex-based tokenizer correctly identifies "..." as 0 words.
+      expect(metrics.word_count).toBe(0);
       expect(metrics.unique_words).toBe(0);
       expect(metrics.cefr_level).toBe("A1");
     });

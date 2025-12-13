@@ -38,16 +38,29 @@ class ModelSingleton {
       // Track per-file progress
       const fileProgress: Record<string, number> = {};
 
-      // Using distil-small.en with WebGPU - proven to work at ~8s processing
-      // Larger models (large-v3, turbo) cause memory allocation failures
-      this.instance = pipeline('automatic-speech-recognition', 'distil-whisper/distil-small.en', {
+      // Using whisper-base.en for better accuracy than distil-small
+      // It is larger (~150MB) but avoids the "hallucination" issues on short phrases.
+      this.instance = pipeline('automatic-speech-recognition', 'Xenova/whisper-base.en', {
         progress_callback: (data: any) => {
           // Handle different loading stages
           if (data.status === 'progress' && data.progress !== undefined) {
             const fileName = data.file || 'model';
             fileProgress[fileName] = data.progress || 0;
-            const files = Object.values(fileProgress);
-            const overallProgress = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
+            const entries = Object.entries(fileProgress);
+            
+            // 99% of download size is the main model file for accurate progress
+            let totalWeightedProgress = 0;
+            let totalWeight = 0;
+
+            for (const [file, progress] of entries) {
+                const isMainModel = file.includes("model.onnx") || file.includes("model.safetensors") || file.endsWith(".bin");
+                const weight = isMainModel ? 100 : 1;
+                
+                totalWeightedProgress += progress * weight;
+                totalWeight += weight;
+            }
+
+            const overallProgress = Math.round(totalWeightedProgress / Math.max(totalWeight, 1));
             updateLoadingState({ progress: overallProgress });
           } else if (data.status === 'initiate') {
             // Starting to load a file
@@ -114,9 +127,7 @@ export class LocalTranscriber implements ITranscriber {
   private recorder = new AudioRecorder();
   private model: any = null;
   public onProgress?: (msg: string) => void;
-  public onPartialTranscript?: (text: string) => void;
   private isTranscriptionActive = false;
-  private streamingInterval: ReturnType<typeof setInterval> | null = null;
   private accumulatedChunks: Blob[] = [];
   
   /**
@@ -144,8 +155,20 @@ export class LocalTranscriber implements ITranscriber {
           fileProgress[fileName] = data.progress || 0;
           
           // Calculate overall progress (average of all files)
-          const files = Object.values(fileProgress);
-          const overallProgress = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
+          // Calculate weighted progress
+          const entries = Object.entries(fileProgress);
+          let totalWeightedProgress = 0;
+          let totalWeight = 0;
+
+          for (const [file, progress] of entries) {
+              const isMainModel = file.includes("model.onnx") || file.includes("model.safetensors") || file.endsWith(".bin");
+              const weight = isMainModel ? 100 : 1;
+              
+              totalWeightedProgress += progress * weight;
+              totalWeight += weight;
+          }
+
+          const overallProgress = Math.round(totalWeightedProgress / Math.max(totalWeight, 1));
           
           // Only update if progress changed (reduces flickering)
           if (overallProgress !== lastDisplayedProgress) {
@@ -166,46 +189,10 @@ export class LocalTranscriber implements ITranscriber {
 
     this.onProgress?.("Recording...");
     await this.recorder.start(deviceId);
-    
-    // Start streaming transcription loop
-    if (this.onPartialTranscript) {
-      this.startStreamingTranscription();
-    }
-  }
-  
-  private startStreamingTranscription(): void {
-    // Transcribe every 3 seconds for partial results
-    const STREAM_INTERVAL_MS = 3000;
-    
-    this.streamingInterval = setInterval(async () => {
-      if (!this.isTranscriptionActive) return;
-      
-      try {
-        // Get current audio level to include in status
-        const level = this.recorder.getAudioLevel();
-        if (level > 0.1) {
-          this.onProgress?.("Transcribing...");
-        }
-        
-        // Create a snapshot blob from current recorder state
-        // Note: We can't get chunks mid-recording, so we'll show "processing" 
-        // and do the actual transcription on stop for accuracy
-        // For now, show visual feedback that we're listening
-        
-      } catch (e) {
-        console.warn("[LocalTranscriber] Streaming transcription error:", e);
-      }
-    }, STREAM_INTERVAL_MS);
   }
 
-    async stop(): Promise<TranscriptionResult> {
+  async stop(): Promise<TranscriptionResult> {
     this.isTranscriptionActive = false;
-    
-    // Clear streaming interval
-    if (this.streamingInterval) {
-      clearInterval(this.streamingInterval);
-      this.streamingInterval = null;
-    }
     
     this.onProgress?.("Processing...");
     let audioBlob: Blob;
