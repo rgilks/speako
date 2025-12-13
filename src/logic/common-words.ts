@@ -1,0 +1,140 @@
+/**
+ * Common English words used to determine vocabulary complexity.
+ * Words not in this set are considered "complex" for CEFR estimation.
+ */
+export const COMMON_WORDS = new Set([
+  // Core functional words
+  "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
+  "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
+  "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
+  "or", "an", "will", "my", "one", "all", "would", "there", "their", "what",
+  "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+  "when", "make", "can", "like", "time", "no", "just", "him", "know", "take",
+  "people", "into", "year", "your", "good", "some", "could", "them", "see", "other",
+  "than", "then", "now", "look", "only", "come", "its", "over", "think", "also",
+  "back", "after", "use", "two", "how", "our", "work", "first", "well", "way",
+  "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
+  
+  // Verb forms
+  "are", "is", "was", "were", "been", "has", "had", "does", "did", "done",
+  "goes", "went", "gone", "got", "shall", "should", "may", "might", "must",
+  
+  // Greetings and common expressions
+  "hello", "hi", "bye", "goodbye", "yes", "please", "thank", "thanks", "sorry", "excuse",
+  
+  // Numbers
+  "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "first", "second", "third", "last", "next", "previous",
+  
+  // Days and months
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+  
+  // Time words
+  "morning", "afternoon", "evening", "night", "week", "month",
+  "today", "yesterday", "tomorrow", "later", "soon", "early", "late",
+  "always", "usually", "often", "sometimes", "rarely", "never",
+  
+  // Location words
+  "here", "there", "everywhere", "nowhere", "somewhere", "anywhere",
+  
+  // Demonstratives and question words
+  "those",
+  
+  // Pronouns
+  "him", "us",
+  "mine", "yours", "hers", "ours", "theirs",
+  "myself", "yourself", "himself", "herself", "itself", "ourselves", "yourselves", "themselves",
+  
+  // Prepositions
+  "through", "between", "against", "during", "without", "before", "under", "around", "among",
+  
+  // Conjunctions
+  "while", "although", "though", "unless", "until", "since", "where",
+  
+  // Adverbs
+  "very", "really", "too", "quite", "rather", "extremely", "totally", "completely", "absolutely",
+  
+  // Common adjectives
+  "bad", "big", "small", "long", "short", "old", "young", "happy", "sad", "fast", "slow",
+  "hot", "cold", "warm", "cool", "hard", "soft", "easy", "difficult", "heavy", "light",
+  "dark", "bright", "rich", "poor", "expensive", "cheap", "clean", "dirty", "beautiful", "ugly",
+  "strong", "weak", "safe", "dangerous", "important", "unimportant", "true", "false", "right", "wrong",
+  "interesting", "boring", "funny", "serious", "nice", "kind", "mean", "friendly", "unfriendly",
+  "polite", "rude", "quiet", "noisy", "busy", "lazy", "lucky", "unlucky", "same", "different",
+  
+  // Places
+  "home", "house", "apartment", "room", "kitchen", "bathroom", "bedroom", "living", "dining",
+  "garden", "garage", "school", "university", "college", "office", "job", "business", "company",
+  "store", "shop", "market", "supermarket", "restaurant", "cafe", "bar", "hotel", "hospital",
+  "doctor", "dentist", "pharmacy", "police", "station", "fire", "post", "bank", "library",
+  "museum", "park", "cinema", "theatre", "movie", "film", "music", "song", "book", "newspaper",
+  "magazine", "letter", "email", "message", "phone", "computer", "internet", "website", "app",
+  "game", "sport", "football", "soccer", "basketball", "tennis", "swimming", "running", "walking",
+  "car", "bus", "train", "plane", "bicycle", "bike", "boat", "ship", "ticket", "money", "cash",
+  "card", "price", "cost", "pay", "buy", "sell", "shopping", "clothes", "shirt", "pants", "shoes",
+  "hat", "coat", "dress", "skirt", "bag", "watch", "glasses", "food", "drink", "water", "coffee",
+  "tea", "milk", "juice", "bread", "cheese", "meat", "fish", "chicken", "fruit", "vegetable",
+  "apple", "banana", "orange", "potato", "tomato", "onion", "carrot", "breakfast", "lunch",
+  "dinner", "snack", "meal", "table", "chair", "sofa", "bed", "desk", "door", "window", "wall",
+  "floor", "ceiling", "roof", "lamp", "picture", "clock", "pen", "pencil", "paper", "notebook",
+  "dictionary", "map", "camera", "photo", "video", "television", "tv", "radio", "hour", "minute",
+  "moment", "calendar", "date", "weather", "sun", "moon", "star", "sky", "cloud", "rain", "snow",
+  "wind", "storm", "temperature", "degree", "season", "spring", "summer", "autumn", "winter",
+  "animal", "dog", "cat", "bird", "horse", "cow", "pig", "sheep", "mouse", "rat", "rabbit",
+  "lion", "tiger", "elephant", "bear", "monkey", "snake", "insect", "spider", "fly", "bee",
+  "mosquito", "tree", "flower", "grass", "plant", "forest", "mountain", "hill", "river", "lake",
+  "ocean", "sea", "beach", "sand", "rock", "stone", "earth", "world", "country", "city", "town",
+  "village", "street", "road", "building", "place", "area", "direction", "north", "south", "east",
+  "west", "left", "front", "center", "middle", "side", "top", "bottom", "inside", "outside", "near", "far",
+  
+  // Family and people
+  "family", "parent", "father", "mother", "dad", "mom", "son", "daughter", "brother", "sister",
+  "grandfather", "grandmother", "grandpa", "grandma", "husband", "wife", "child", "children",
+  "baby", "boy", "girl", "man", "men", "woman", "women", "person", "friend", "colleague",
+  "neighbor", "guest", "visitor", "boss", "manager", "staff", "employee", "student", "teacher",
+  "professor", "nurse", "officer", "driver", "pilot", "cook", "chef", "waiter", "waitress",
+  "actor", "actress", "artist", "musician", "writer", "singer", "dancer", "athlete", "player",
+  "fan", "audience", "crowd",
+  
+  // Colors
+  "color", "red", "blue", "green", "yellow", "purple", "pink", "brown", "black", "white", "gray", "gold", "silver",
+  
+  // Body parts
+  "body", "head", "hair", "face", "eye", "nose", "ear", "mouth", "tooth", "teeth", "tongue",
+  "lip", "neck", "shoulder", "arm", "hand", "finger", "thumb", "chest", "stomach", "leg",
+  "knee", "foot", "feet", "toe", "skin", "blood", "heart", "brain", "bone", "muscle",
+  
+  // Health
+  "health", "sick", "ill", "fine", "pain", "hurt", "break", "cut", "burn", "cough", "sneeze",
+  "flu", "fever", "medicine", "pill", "ambulance", "emergency", "help",
+  
+  // Abstract concepts and common verbs
+  "problem", "question", "answer", "idea", "thought", "memory", "dream", "hope", "wish", "fear",
+  "love", "hate", "dislike", "joy", "sadness", "anger", "surprise", "fun", "joke", "party",
+  "holiday", "vacation", "trip", "travel", "journey", "visit", "meeting", "class", "lesson",
+  "test", "exam", "grade", "score", "pass", "fail", "study", "learn", "teach", "read", "write",
+  "speak", "listen", "understand", "believe", "agree", "disagree", "remember", "forget", "start",
+  "stop", "finish", "begin", "end", "continue", "wait", "change", "stay", "leave", "arrive",
+  "return", "enter", "exit", "open", "close", "lock", "unlock", "push", "pull", "lift", "drop",
+  "throw", "catch", "hit", "kick", "run", "walk", "jump", "sit", "stand", "lie", "sleep", "wake",
+  "eat", "wash", "wear", "save", "spend", "lose", "find", "search", "touch", "feel", "smell",
+  "taste", "smile", "laugh", "cry", "shout", "whisper", "talk", "tell", "ask", "call", "text",
+  "sign", "draw", "paint",
+  
+  // General words
+  "thing", "object", "item", "stuff", "piece", "part", "bit", "lot", "number", "amount", "size",
+  "shape", "weight", "length", "width", "height", "depth", "distance", "speed", "quality",
+  "quantity", "type", "sort", "group", "list", "set", "category", "level", "rank", "position",
+  "spot", "location", "zone", "region", "state", "neighborhood", "path", "track", "line",
+  "point", "mark", "symbol", "word", "image", "sound", "noise", "voice",
+  
+  // Modal and auxiliary verbs
+  "am", "being",
+  
+  // Informal/casual words
+  "hav", "havin", "gonna", "wanna", "gotta", "lemme", "gimme", "prob", "probs", "dunno",
+  "kinda", "sorta", "yeah", "yep", "nope", "nah", "uh", "um", "er", "ah", "oh", "ok", "okay",
+  "hey", "wow", "awesome", "perfect", "great", "angry", "tired", "hungry", "thirsty", "sunny",
+  "rainy", "cloudy", "windy", "snowy",
+]);

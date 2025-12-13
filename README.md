@@ -2,60 +2,47 @@
 
 **Browser-based AI Speaking Practice**
 
-Speako is a local-first application designed for practicing exam-style English speaking tests. It prioritizes user privacy and low latency by running powerful AI models directly in your browser using WebAssembly and WebGPU.
+Speako is a local-first application designed for practicing exam-style English speaking tests. It prioritizes user privacy and low latency by running powerful AI models directly in your browser.
 
 ## Features
 
-- **🔒 Privacy First**: Voice data is processed locally on your device using `transformers.js` and Rust-based WASM modules.
+- **🔒 Privacy First**: Voice data is processed locally on your device using `transformers.js`.
 - **⚡️ Ultra-Low Latency**: Instant feedback on speaking metrics (word count, pace, etc.) without server round-trips.
 - **🎯 Exam Tools**:
     - **Topic Generator**: Random discussion prompts.
-    - **Pronunciation Confidence**: Color-coded transcript showing low-confidence words.
-    - **Local Grammar Check**: Smart client-side NLP (via `compromise.js`) for instant feedback on grammar and vocabulary.
-- **📱 PWA Ready**: Installable on mobile and desktop with full offline support (caches AI models).
-- **🦀 Rust Powered**: Core logic shared between client (WASM) and server (Worker) for consistency.
+    - **Local Grammar Check**: Smart client-side NLP (via `compromise.js`) for instant feedback.
+    - **Metrics Analysis**: Real-time analysis of vocabulary complexity and CEFR level estimation.
+- **📱 PWA Ready**: Installable on mobile and desktop with offline support.
 
 ## Architecture
 
-This project is a **monorepo** managed with `pnpm` and `cargo workspaces`.
+Speako is a **pure frontend application** with **no backend server**.
 
-- **`apps/web`**: Frontend built with Preact, TypeScript, and Vite. Handles UI, recording, and local inference.
-- **`crates/core`**: Pure Rust library containing the business logic for text analysis and metrics.
-- **`crates/client`**: Rust library compiling to WebAssembly to expose `core` logic to the browser.
+- **Frontend**: Vite + Preact + TypeScript
+- **AI Models**: `transformers.js` (running locally in-browser via ONNX)
+- **Audio Processing**: Standard Web Audio API
+- **Deployment**: Static HTML/JS/CSS (deployable to GitHub Pages, Cloudflare Pages, etc.)
 
-## Development Setup
+This "Serverless AI" approach ensures maximum privacy, zero server costs, and offline capability.
 
-### Prerequisites
-- Node.js & pnpm
-- Rust & Cargo
-- `wasm-pack` (`cargo install wasm-pack`)
-- `wrangler` (for Cloudflare deployment)
 
-### 1. Build WASM
-Compile the Rust client for use in the web app:
+### Running Locally
 ```bash
-cd crates/client
-wasm-pack build --target bundler
-```
+# Install dependencies
+npm install
 
-### 2. Run Frontend
-Start the local development server:
-```bash
-cd apps/web
-pnpm install
-pnpm dev
+# Start development server
+npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173).
 
-
 ## Deployment
 
-The project is deployed on Cloudflare.
-
-- **Frontend**: Cloudflare Pages
-
-To deploy manually:
-1. **Web**: `cd apps/web && pnpm build && npx wrangler pages deploy dist`
+To build for production:
+```bash
+npm run build
+```
+This produces a static output in `dist/` which can be deployed to any static host (e.g., Cloudflare Pages, Vercel, Netlify).
 
 ## License
 MIT

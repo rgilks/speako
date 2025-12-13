@@ -3,8 +3,7 @@ import { useEffect, useRef, useCallback } from "preact/hooks";
 import { Fragment } from "preact";
 import { env } from "@huggingface/transformers";
 import { LocalTranscriber, subscribeToLoadingState, ModelLoadingState } from "../logic/local-transcriber";
-// In real app, we'd import the WASM module dynamically or via the plugin
-import * as wasm from "../../../../crates/client/pkg/speako_client";
+import { computeMetrics } from "../logic/metrics-calculator";
 
 import { TranscriptionResult } from "../logic/transcriber";
 import { GrammarChecker, GrammarIssue } from "../logic/grammar-checker";
@@ -33,10 +32,7 @@ export function SessionManager() {
     error: null,
   });
 
-  // WASM module is auto-initialized by vite-plugin-wasm via Top-Level Await
-  useEffect(() => {
-     console.log("WASM Module loaded.");
-  }, []);
+
   
   // Subscribe to model loading state
   useEffect(() => {
@@ -126,8 +122,8 @@ export function SessionManager() {
       console.log(`[SessionManager] Transcription received: "${result.text.substring(0, 50)}..."`);
     } catch (e) {
       console.error("[SessionManager] Transcription failed:", e);
-      statusMsg.value = `Error processing: ${e}`; // Original status update
-      transcript.value = { text: `Error: ${e}`, words: [] }; // Original error message
+      statusMsg.value = `Error processing: ${e}`;
+      transcript.value = { text: `Error: ${e}`, words: [] };
       view.value = "results";
       return;
     }
@@ -148,41 +144,25 @@ export function SessionManager() {
 
     transcript.value = result;
 
-    // Calculate metrics using WASM
+    // Calculate metrics using TypeScript
     try {
-      console.log("[SessionManager] Calculating metrics..."); // Added log
-      // The provided edit used `speako_client`. Assuming it refers to `wasm` here.
-      // If `speako_client` is a different global, it needs to be defined.
-      if (!wasm) { // Changed from speako_client to wasm
-        console.error("[SessionManager] WASM module not loaded!");
-        throw new Error("WASM module not loaded");
-      }
+      console.log("[SessionManager] Calculating metrics...");
       
-      const metricsResult = wasm.calculate_metrics_wasm(result.text); // Changed from speako_client to wasm
-      console.log("[SessionManager] Metrics calculated:", metricsResult); // Added log
+      const metricsResult = computeMetrics(result.text);
+      console.log("[SessionManager] Metrics calculated:", metricsResult);
       
-      // Parse CEFR: "B2 (Upper Intermediate)" -> "B2"
-      let cefr = "N/A";
-      let description = "";
-      if (metricsResult.cefr_level) {
-        const parts = metricsResult.cefr_level.split(" ");
-        cefr = parts[0];
-        description = parts.slice(1).join(" ").replace(/[()]/g, "");
-      }
-      
-      // The provided edit changed the structure of metrics.value.
-      // Applying this change.
       metrics.value = {
-        word_count: metricsResult.word_count, // Keep original field
-        wpm: Math.round(metricsResult.wpm || (metricsResult.word_count / (lastDuration.value / 60))), // Calculate WPM if not present, using original duration
-        cefr_level: cefr,
-        cefr_description: description,
-        fluency_score: Math.round(metricsResult.fluency_score || 0),
+        word_count: metricsResult.word_count,
+        wpm: Math.round(metricsResult.word_count / (lastDuration.value / 60)),
+        cefr_level: metricsResult.cefr_level,
+        cefr_description: "",
+        fluency_score: 0,
         unique_words: metricsResult.unique_words,
         complex_words: metricsResult.complex_words
       };
       
-      console.log(`[SessionManager] Processing complete in ${Math.round(Date.now() - startTime.current)}ms`); // Added log, using original startTime
+      // Calculate processing time
+      console.log(`[SessionManager] Processing complete in ${Math.round(Date.now() - startTime.current)}ms`);
       
       // Run Grammar Check
       const issues = GrammarChecker.check(result.text);
@@ -190,16 +170,16 @@ export function SessionManager() {
       
       view.value = "results";
     } catch (e) {
-      console.error("[SessionManager] Metrics calculation failed:", e); // Added log
-      statusMsg.value = `Error calculating metrics: ${e}`; // Original status update
+      console.error("[SessionManager] Metrics calculation failed:", e);
+      statusMsg.value = `Error calculating metrics: ${e}`;
       metrics.value = null;
       // Still show the transcript even if metrics fail
       view.value = "results";
     }
   };
 
-  const handleRetry = () => { // Renamed from resetSession to handleRetry as per edit
-    console.log("[SessionManager] User retry/start new session."); // Added log
+  const handleRetry = () => {
+    console.log("[SessionManager] User retry/start new session.");
     view.value = "idle";
     transcript.value = null;
     metrics.value = null;
