@@ -10,7 +10,8 @@
     "build:all": "pnpm build:wasm && pnpm build:web",
     "test:all": "pnpm test:rust && pnpm -F speako-web test",
     "test": "pnpm test:all",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deps:update": "npx npm-check-updates -u"
 
   },
   "devDependencies": {

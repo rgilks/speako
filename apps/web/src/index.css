@@ -85,6 +85,7 @@ button {
     line-height: 1.1;
     background: linear-gradient(to right, #fff, #a1a1aa);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -120,10 +121,12 @@ button {
     0%,
     100% {
         box-shadow: 0 0 10px -5px var(--accent-glow);
+        opacity: 1;
     }
 
     50% {
         box-shadow: 0 0 25px -5px var(--accent-glow);
+        opacity: 0.7;
     }
 }
 

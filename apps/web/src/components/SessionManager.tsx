@@ -1,8 +1,8 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef, useCallback } from "preact/hooks";
 import { Fragment } from "preact";
-import { env } from "@xenova/transformers";
-import { LocalTranscriber } from "../logic/local-transcriber";
+import { env } from "@huggingface/transformers";
+import { LocalTranscriber, subscribeToLoadingState, ModelLoadingState } from "../logic/local-transcriber";
 // In real app, we'd import the WASM module dynamically or via the plugin
 import * as wasm from "../../../../crates/client/pkg/speako_client";
 
@@ -24,10 +24,26 @@ export function SessionManager() {
   const elapsedTime = useSignal(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedDeviceId = useSignal<string>("");
+  
+  // Model loading state
+  const modelLoadingState = useSignal<ModelLoadingState>({
+    isLoading: false,
+    isLoaded: false,
+    progress: 0,
+    error: null,
+  });
 
   // WASM module is auto-initialized by vite-plugin-wasm via Top-Level Await
   useEffect(() => {
      console.log("WASM Module loaded.");
+  }, []);
+  
+  // Subscribe to model loading state
+  useEffect(() => {
+    const unsubscribe = subscribeToLoadingState((state) => {
+      modelLoadingState.value = state;
+    });
+    return unsubscribe;
   }, []);
 
   // Topic Generator Logic
@@ -62,20 +78,20 @@ export function SessionManager() {
     try {
       transcript.value = null;
       metrics.value = null;
-      statusMsg.value = "Starting...";
-      startTime.current = Date.now();
+      statusMsg.value = "Loading model...";
       elapsedTime.value = 0;
-      
-      // Start elapsed timer
-      timerRef.current = setInterval(() => {
-        elapsedTime.value = Math.floor((Date.now() - startTime.current) / 1000);
-      }, 1000);
       
       // Select transcriber based on config
       // Default to Local as it's the core feature.
       console.log("[SessionManager] Using LocalTranscriber.", selectedDeviceId.value ? `Device: ${selectedDeviceId.value}` : "(default)");
       localTranscriber.onProgress = (msg) => { statusMsg.value = msg; };
       await localTranscriber.start(selectedDeviceId.value || undefined);
+      
+      // Only start timer AFTER model is loaded and recording has started
+      startTime.current = Date.now();
+      timerRef.current = setInterval(() => {
+        elapsedTime.value = Math.floor((Date.now() - startTime.current) / 1000);
+      }, 1000);
       
       statusMsg.value = "Speak now...";
     } catch (e) {
@@ -201,25 +217,84 @@ export function SessionManager() {
             Real-time local AI speech analysis.
           </p>
           
-           {/* Topic Generator Card */}
-          <div className="card-glass" style={{ margin: "0 auto 2rem auto", maxWidth: "400px", textAlign: 'left', padding: '1.5rem' }}>
-              {/* Device Picker */}
-              <DevicePicker 
-                selectedDeviceId={selectedDeviceId.value}
-                onDeviceChange={(id) => { selectedDeviceId.value = id; }}
-              />
-              
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
-                 <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-secondary)' }}>Speaking Topic</span>
-                 <button onClick={generateTopic} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title="New Topic">🔄</button>
+          {/* Model Loading Progress */}
+          {!modelLoadingState.value.isLoaded && (
+            <div className="card-glass" style={{ margin: "0 auto 2rem auto", maxWidth: "400px", padding: '1.5rem' }}>
+              <div style={{ marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-secondary)' }}>
+                  {modelLoadingState.value.error ? '⚠️ Error' : '🧠 AI Model'}
+                </span>
               </div>
-              <p style={{ fontSize: '1.1rem', lineHeight: '1.4', fontWeight: 500 }}>
-                  {currentTopic.value}
-              </p>
-          </div>
+              
+              {modelLoadingState.value.error ? (
+                <p style={{ color: 'var(--error)', fontSize: '0.9rem' }}>
+                  Failed to load model: {modelLoadingState.value.error}
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+                    {modelLoadingState.value.isLoading 
+                      ? 'Downloading Distil-Whisper model for accurate speech recognition...'
+                      : 'Preparing to load AI model...'}
+                  </p>
+                  
+                  {/* Progress Bar */}
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.1)', 
+                    borderRadius: '8px', 
+                    height: '8px',
+                    overflow: 'hidden',
+                    marginBottom: '0.5rem'
+                  }}>
+                    <div style={{
+                      background: 'linear-gradient(90deg, #6d28d9, #8b5cf6)',
+                      height: '100%',
+                      width: `${Math.max(modelLoadingState.value.progress, 4)}%`,
+                      minWidth: '4%',
+                      borderRadius: '8px',
+                      transition: 'width 0.3s ease-out',
+                      animation: 'pulse-glow 1.5s ease-in-out infinite'
+                    }} />
+                  </div>
+                  
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    {modelLoadingState.value.progress}% complete
+                    {modelLoadingState.value.progress < 100 && ' • One-time download, cached for future visits'}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+          
+           {/* Topic Generator Card - only show when model is loaded */}
+          {modelLoadingState.value.isLoaded && (
+            <div className="card-glass" style={{ margin: "0 auto 2rem auto", maxWidth: "400px", textAlign: 'left', padding: '1.5rem' }}>
+                {/* Device Picker */}
+                <DevicePicker 
+                  selectedDeviceId={selectedDeviceId.value}
+                  onDeviceChange={(id) => { selectedDeviceId.value = id; }}
+                />
+                
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                   <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-secondary)' }}>Speaking Topic</span>
+                   <button onClick={generateTopic} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title="New Topic">🔄</button>
+                </div>
+                <p style={{ fontSize: '1.1rem', lineHeight: '1.4', fontWeight: 500 }}>
+                    {currentTopic.value}
+                </p>
+            </div>
+          )}
 
-          <button className="btn-primary" onClick={handleStart}>
-            Start Analysis
+          <button 
+            className="btn-primary" 
+            onClick={handleStart}
+            disabled={!modelLoadingState.value.isLoaded}
+            style={{ 
+              opacity: modelLoadingState.value.isLoaded ? 1 : 0.5,
+              cursor: modelLoadingState.value.isLoaded ? 'pointer' : 'not-allowed'
+            }}
+          >
+            {modelLoadingState.value.isLoaded ? 'Start Analysis' : 'Loading Model...'}
           </button>
            {statusMsg.value && (
              <p className="status-badge" style={{marginTop: '2rem', animation: 'fadeIn 0.3s ease-out'}}>

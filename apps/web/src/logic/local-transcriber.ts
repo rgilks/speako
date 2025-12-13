@@ -1,44 +1,113 @@
-import { pipeline, env } from '@xenova/transformers';
+import { pipeline } from '@huggingface/transformers';
 import { ITranscriber, TranscriptionResult } from './transcriber';
 import { AudioRecorder } from './audio';
 
-// Configure transformers.js to use the remote Hugging Face Hub
-// This prevents it from checking the local server (and getting 404 -> index.html)
+// Model loading state
+export interface ModelLoadingState {
+  isLoading: boolean;
+  isLoaded: boolean;
+  progress: number; // 0-100
+  error: string | null;
+}
+
+// Callbacks for loading state updates
+type LoadingStateCallback = (state: ModelLoadingState) => void;
+const loadingStateCallbacks: LoadingStateCallback[] = [];
+let currentLoadingState: ModelLoadingState = {
+  isLoading: false,
+  isLoaded: false,
+  progress: 0,
+  error: null,
+};
+
+function updateLoadingState(partial: Partial<ModelLoadingState>) {
+  currentLoadingState = { ...currentLoadingState, ...partial };
+  loadingStateCallbacks.forEach(cb => cb(currentLoadingState));
+}
+
 // Singleton to prevent multiple model loads
 class ModelSingleton {
   static instance: Promise<any> | null = null;
+  static preloadStarted = false;
+  
   static getInstance(progressCallback?: (data: any) => void) {
     if (!this.instance) {
-      console.log("Loading Whisper Tiny...");
-      console.log("env.allowLocalModels:", env.allowLocalModels);
-      
-      
-      try {
-        // Suppress ONNX Runtime warnings (like "Removing initializer...")
-        // @ts-ignore
-        if (env.backends && env.backends.onnx) {
-            env.backends.onnx.logLevel = 'error';
-        }
-      } catch (e) {
-        console.warn("Failed to set ONNX log level:", e);
-      }
+      console.log("Loading Distil-Whisper Small with WebGPU...");
+      updateLoadingState({ isLoading: true, progress: 0 });
 
-      // Robust fallback: Intercept console.warn/log to filter out specific ONNX noise
-      const originalWarn = console.warn;
-      console.warn = (...args) => {
-          if (args.length > 0 && typeof args[0] === 'string' && 
-              (args[0].includes("CleanUnusedInitializersAndNodeArgs") || args[0].includes("Removing initializer"))) {
-              return;
+      // Track per-file progress
+      const fileProgress: Record<string, number> = {};
+
+      // Using distil-small.en with WebGPU - proven to work at ~8s processing
+      // Larger models (large-v3, turbo) cause memory allocation failures
+      this.instance = pipeline('automatic-speech-recognition', 'distil-whisper/distil-small.en', {
+        progress_callback: (data: any) => {
+          // Handle different loading stages
+          if (data.status === 'progress' && data.progress !== undefined) {
+            const fileName = data.file || 'model';
+            fileProgress[fileName] = data.progress || 0;
+            const files = Object.values(fileProgress);
+            const overallProgress = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
+            updateLoadingState({ progress: overallProgress });
+          } else if (data.status === 'initiate') {
+            // Starting to load a file
+            updateLoadingState({ progress: Math.max(currentLoadingState.progress, 10) });
+          } else if (data.status === 'download') {
+            // Downloading (for uncached files)
+            updateLoadingState({ progress: Math.max(currentLoadingState.progress, 20) });
+          } else if (data.status === 'done') {
+            // A file finished loading
+            updateLoadingState({ progress: Math.max(currentLoadingState.progress, 80) });
+          } else if (data.status === 'ready') {
+            // Model is ready
+            updateLoadingState({ progress: 95 });
           }
-          originalWarn.apply(console, args);
-      };
-
-      this.instance = pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
-        progress_callback: progressCallback
+          progressCallback?.(data);
+        },
+        device: 'webgpu',
+        dtype: 'fp32',
+      }).then((model) => {
+        console.log("Whisper model loaded successfully!");
+        updateLoadingState({ isLoading: false, isLoaded: true, progress: 100 });
+        return model;
+      }).catch((error) => {
+        console.error("Failed to load Whisper model:", error);
+        updateLoadingState({ isLoading: false, error: String(error) });
+        throw error;
       });
     }
     return this.instance;
   }
+  
+  static preload() {
+    if (!this.preloadStarted && !this.instance) {
+      this.preloadStarted = true;
+      console.log("Preloading Whisper model in background...");
+      this.getInstance();
+    }
+  }
+}
+
+// Subscribe to loading state changes
+export function subscribeToLoadingState(callback: LoadingStateCallback): () => void {
+  loadingStateCallbacks.push(callback);
+  // Immediately call with current state
+  callback(currentLoadingState);
+  // Return unsubscribe function
+  return () => {
+    const index = loadingStateCallbacks.indexOf(callback);
+    if (index > -1) loadingStateCallbacks.splice(index, 1);
+  };
+}
+
+// Get current loading state
+export function getLoadingState(): ModelLoadingState {
+  return currentLoadingState;
+}
+
+// Start preloading
+export function preloadTranscriptionModel() {
+  ModelSingleton.preload();
 }
 
 export class LocalTranscriber implements ITranscriber {
@@ -63,9 +132,28 @@ export class LocalTranscriber implements ITranscriber {
     
     if (!this.model) {
       this.onProgress?.("Loading model...");
+      
+      // Track progress across multiple model files to avoid flickering
+      const fileProgress: Record<string, number> = {};
+      let lastDisplayedProgress = -1;
+      
       this.model = await ModelSingleton.getInstance((data: any) => {
         if (data.status === 'progress' && this.onProgress) {
-            this.onProgress(`Downloading... ${Math.round(data.progress || 0)}%`);
+          // Track each file's progress separately
+          const fileName = data.file || 'model';
+          fileProgress[fileName] = data.progress || 0;
+          
+          // Calculate overall progress (average of all files)
+          const files = Object.values(fileProgress);
+          const overallProgress = Math.round(files.reduce((a, b) => a + b, 0) / Math.max(files.length, 1));
+          
+          // Only update if progress changed (reduces flickering)
+          if (overallProgress !== lastDisplayedProgress) {
+            lastDisplayedProgress = overallProgress;
+            this.onProgress(`Downloading model... ${overallProgress}%`);
+          }
+        } else if (data.status === 'ready') {
+          this.onProgress?.("Model loaded!");
         }
       });
     }
@@ -136,8 +224,8 @@ export class LocalTranscriber implements ITranscriber {
     const url = URL.createObjectURL(audioBlob);
     
     try {
-      // Request word-level timestamps for fluency analysis
-      const output = await this.model(url, { return_timestamps: 'word' });
+      // Transcribe the audio without timestamps (simpler and more reliable)
+      const output = await this.model(url);
       URL.revokeObjectURL(url);
       
       let text = "";
@@ -147,10 +235,11 @@ export class LocalTranscriber implements ITranscriber {
         text = output.text?.trim() || "";
         if (output.chunks) {
             console.log("Fluency Data (Chunks):", output.chunks);
+            // Extract words from chunks (phrase-level for distil models)
             words = output.chunks.map((c: any) => ({
                 word: c.text.trim(),
-                start: c.timestamp[0],
-                end: c.timestamp[1],
+                start: c.timestamp?.[0] ?? 0,
+                end: c.timestamp?.[1] ?? 0,
                 score: c.score || 0.99 // Fallback confidence if not provided
             }));
         }
