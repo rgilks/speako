@@ -32,7 +32,7 @@ class ModelSingleton {
   
   static getInstance(progressCallback?: (data: any) => void) {
     if (!this.instance) {
-      console.log("Loading Distil-Whisper Small with WebGPU...");
+      console.log("Loading Whisper Base with WebGPU...");
       updateLoadingState({ isLoading: true, progress: 0 });
 
       // Track per-file progress
