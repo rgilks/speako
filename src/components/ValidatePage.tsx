@@ -1,22 +1,31 @@
 import { useSignal } from "@preact/signals";
 import { pipeline } from "@huggingface/transformers";
+import { computeMetrics } from "../logic/metrics-calculator";
+import { GrammarChecker } from "../logic/grammar-checker";
 
 interface ValidationResult {
   fileId: string;
   reference: string;
   hypothesis: string;
   wer: number;
-  cefrLevel: string;
+  // CEFR validation
+  labeledCEFR: string;
+  detectedCEFR: string;
+  cefrMatch: boolean;
+  // Full pipeline
+  wordCount: number;
+  clarityScore: number;
+  grammarIssues: number;
   processingTimeMs: number;
 }
 
 interface STMEntry {
   fileId: string;
   transcript: string;
-  metadata: string;
+  labeledCEFR: string;
 }
 
-// Available Whisper models for WebGPU
+// All these Whisper models work with WebGPU (ONNX format)
 const WHISPER_MODELS = [
   { id: 'Xenova/whisper-tiny.en', name: 'Tiny (39MB)', size: 39 },
   { id: 'Xenova/whisper-base.en', name: 'Base (74MB)', size: 74 },
@@ -25,8 +34,8 @@ const WHISPER_MODELS = [
 ];
 
 /**
- * Browser-based validation using WebGPU Whisper.
- * Compares different model sizes to find optimal accuracy/size tradeoff.
+ * Full Pipeline Validation using WebGPU Whisper.
+ * Validates: Transcription (WER), CEFR detection, Metrics, Grammar.
  * Access: http://localhost:5173/#validate
  */
 export function ValidatePage() {
@@ -36,23 +45,28 @@ export function ValidatePage() {
   const results = useSignal<ValidationResult[]>([]);
   const isRunning = useSignal(false);
   const isComplete = useSignal(false);
-  const averageWER = useSignal(0);
   const fileLimit = useSignal(10);
-  const selectedModel = useSignal(WHISPER_MODELS[0].id);
-  const modelInstance = useSignal<any>(null);
+  const selectedModel = useSignal(WHISPER_MODELS[1].id); // Default to Base
 
-  // Parse STM: fileId channel speaker start end <metadata> transcript
-  // IMPORTANT: Aggregate all segments for each fileId into one transcript
+  // Aggregated scores
+  const avgWER = useSignal(0);
+  const cefrAccuracy = useSignal(0);
+  const avgClarity = useSignal(0);
+
+  // Parse STM with CEFR labels
   function parseSTM(content: string): Map<string, STMEntry> {
     const entries = new Map<string, STMEntry>();
-    const segments: Map<string, { metadata: string; transcripts: string[] }> = new Map();
+    const segments: Map<string, { cefr: string; transcripts: string[] }> = new Map();
     
     for (const line of content.split('\n')) {
       if (line.startsWith(';;') || !line.trim()) continue;
       const match = line.match(/^(\S+)\s+\S+\s+\S+\s+[\d.]+\s+[\d.]+\s+<([^>]+)>\s+(.*)$/);
       if (match) {
         const [, fileId, metadata, transcript] = match;
-        // Clean: remove disfluencies like (%hesitation%), (ga-)
+        // Extract CEFR from metadata like "o,Q4,C,P1" where C = CEFR level
+        const cefrMatch = metadata.match(/,([ABC][12]?),/);
+        const labeledCEFR = cefrMatch ? cefrMatch[1] : 'Unknown';
+        
         const clean = transcript
           .replace(/\(%[^)]+%\)/g, '')
           .replace(/\([^)]*-\)/g, '')
@@ -61,23 +75,19 @@ export function ValidatePage() {
           .toLowerCase();
         
         if (!segments.has(fileId)) {
-          segments.set(fileId, { metadata, transcripts: [] });
+          segments.set(fileId, { cefr: labeledCEFR, transcripts: [] });
         }
-        if (clean) {
-          segments.get(fileId)!.transcripts.push(clean);
-        }
+        if (clean) segments.get(fileId)!.transcripts.push(clean);
       }
     }
     
-    // Combine all segments for each file
     for (const [fileId, data] of segments) {
       entries.set(fileId, {
         fileId,
-        metadata: data.metadata,
-        transcript: data.transcripts.join(' ')
+        transcript: data.transcripts.join(' '),
+        labeledCEFR: data.cefr
       });
     }
-    
     return entries;
   }
 
@@ -88,30 +98,20 @@ export function ValidatePage() {
   function calculateWER(reference: string, hypothesis: string): number {
     const refWords = normalize(reference).split(/\s+/).filter(w => w);
     const hypWords = normalize(hypothesis).split(/\s+/).filter(w => w);
-    
     if (refWords.length === 0) return hypWords.length === 0 ? 0 : 1;
     
     const m = refWords.length, n = hypWords.length;
     const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
-    
     for (let i = 0; i <= m; i++) dp[i][0] = i;
     for (let j = 0; j <= n; j++) dp[0][j] = j;
-    
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
-        if (refWords[i-1] === hypWords[j-1]) {
-          dp[i][j] = dp[i-1][j-1];
-        } else {
-          dp[i][j] = 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-        }
+        dp[i][j] = refWords[i-1] === hypWords[j-1] 
+          ? dp[i-1][j-1] 
+          : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
       }
     }
     return dp[m][n] / m;
-  }
-
-  function extractCEFR(metadata: string): string {
-    const match = metadata.match(/[ABC][12]?/);
-    return match ? match[0] : 'Unknown';
   }
 
   async function runValidation() {
@@ -119,7 +119,6 @@ export function ValidatePage() {
     results.value = [];
     
     try {
-      // Load selected model
       status.value = `Loading ${selectedModel.value}...`;
       const model = await pipeline('automatic-speech-recognition', selectedModel.value, {
         device: 'webgpu',
@@ -130,113 +129,98 @@ export function ValidatePage() {
           }
         }
       });
-      modelInstance.value = model;
-      status.value = "Model loaded!";
 
-      // Load reference transcripts
       status.value = "Loading references...";
       const stmRes = await fetch('/test-data/reference-materials/stms/dev-asr.stm');
-      if (!stmRes.ok) throw new Error('Could not load STM file');
+      if (!stmRes.ok) throw new Error('Could not load STM');
       const references = parseSTM(await stmRes.text());
 
-      // Load file list to get WAV files
-      const wavFiles: string[] = [];
-      for (const fileId of references.keys()) {
-        wavFiles.push(fileId);
-        if (wavFiles.length >= fileLimit.value) break;
-      }
+      const wavFiles = Array.from(references.keys()).slice(0, fileLimit.value);
       totalFiles.value = wavFiles.length;
       
       const validationResults: ValidationResult[] = [];
-      let successCount = 0;
       
       for (let i = 0; i < wavFiles.length; i++) {
         const fileId = wavFiles[i];
-        const ref = references.get(fileId);
+        const ref = references.get(fileId)!;
         progress.value = i + 1;
-        
-        if (!ref) continue;
         status.value = `[${i + 1}/${wavFiles.length}] ${fileId}`;
         
         try {
-          // Use pre-converted WAV files
           const audioUrl = `/test-data/wav-dev/${fileId}.wav`;
           const audioRes = await fetch(audioUrl);
-          if (!audioRes.ok) {
-            console.warn(`Missing WAV: ${fileId}`);
-            continue;
-          }
+          if (!audioRes.ok) continue;
           
-          const audioBlob = await audioRes.blob();
-          const blobUrl = URL.createObjectURL(audioBlob);
-          
+          const blobUrl = URL.createObjectURL(await audioRes.blob());
           const startTime = Date.now();
           const output = await model(blobUrl, { return_timestamps: true });
           const processingTime = Date.now() - startTime;
           URL.revokeObjectURL(blobUrl);
           
-          // Handle both single output and array output formats
           const result = Array.isArray(output) ? output[0] : output;
           const hypothesis = (result?.text || '').trim();
+          
+          // Full pipeline
+          const metrics = computeMetrics(hypothesis);
+          const grammar = GrammarChecker.check(hypothesis);
+          
           const wer = calculateWER(ref.transcript, hypothesis);
+          const cefrMatch = metrics.cefr_level === ref.labeledCEFR || 
+                           (ref.labeledCEFR === 'C' && metrics.cefr_level.startsWith('C'));
           
           validationResults.push({
             fileId,
             reference: ref.transcript,
             hypothesis: hypothesis.toLowerCase(),
             wer,
-            cefrLevel: extractCEFR(ref.metadata),
+            labeledCEFR: ref.labeledCEFR,
+            detectedCEFR: metrics.cefr_level,
+            cefrMatch,
+            wordCount: metrics.word_count,
+            clarityScore: grammar.clarityScore,
+            grammarIssues: grammar.issues.length,
             processingTimeMs: processingTime
           });
-          successCount++;
         } catch (e) {
           console.error(`Error: ${fileId}`, e);
         }
       }
       
       results.value = validationResults;
+      
       if (validationResults.length > 0) {
-        averageWER.value = validationResults.reduce((sum, r) => sum + r.wer, 0) / validationResults.length;
+        avgWER.value = validationResults.reduce((s, r) => s + r.wer, 0) / validationResults.length;
+        cefrAccuracy.value = validationResults.filter(r => r.cefrMatch).length / validationResults.length;
+        avgClarity.value = validationResults.reduce((s, r) => s + r.clarityScore, 0) / validationResults.length;
       }
       
       isComplete.value = true;
-      status.value = `Done! ${successCount} files. Avg WER: ${(averageWER.value * 100).toFixed(1)}%`;
+      status.value = `Done! ${validationResults.length} files processed.`;
       
       console.log('VALIDATION_RESULTS:', JSON.stringify({
         model: selectedModel.value,
-        timestamp: new Date().toISOString(),
-        files: validationResults.length,
-        avgWER: averageWER.value,
+        avgWER: avgWER.value,
+        cefrAccuracy: cefrAccuracy.value,
+        avgClarity: avgClarity.value,
         results: validationResults
       }, null, 2));
       
     } catch (e) {
       status.value = `Error: ${e}`;
-      console.error(e);
     }
     isRunning.value = false;
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-        <h1 style={{ margin: 0 }}>🧪 Speako Validation</h1>
-        <span style={{ 
-          background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
-          color: 'white', 
-          padding: '4px 10px', 
-          borderRadius: '12px', 
-          fontSize: '0.75rem', 
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
+        <h1 style={{ margin: 0 }}>🧪 Full Pipeline Validation</h1>
+        <span style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
           ⚡ WebGPU
         </span>
       </div>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-        Compare Whisper models to find the best accuracy/size tradeoff
+        Validates: Transcription (WER), CEFR Detection, Metrics, Grammar
       </p>
       
       <div className="card-glass" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
@@ -251,12 +235,9 @@ export function ValidatePage() {
                 onChange={(e) => selectedModel.value = (e.target as HTMLSelectElement).value}
                 style={{ marginLeft: '0.5rem', padding: '6px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: 'inherit' }}
               >
-                {WHISPER_MODELS.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+                {WHISPER_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </label>
-            
             <label>
               Files:
               <input 
@@ -266,7 +247,6 @@ export function ValidatePage() {
                 style={{ marginLeft: '0.5rem', width: '60px', padding: '6px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: 'inherit' }}
               />
             </label>
-            
             <button className="btn-primary" onClick={runValidation}>
               {isComplete.value ? 'Run Again' : 'Start Validation'}
             </button>
@@ -276,54 +256,77 @@ export function ValidatePage() {
         {totalFiles.value > 0 && (
           <div style={{ marginTop: '1rem' }}>
             <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '8px', height: '6px', overflow: 'hidden' }}>
-              <div style={{ background: '#8b5cf6', height: '100%', width: `${(progress.value / totalFiles.value) * 100}%`, transition: 'width 0.2s' }} />
+              <div style={{ background: '#8b5cf6', height: '100%', width: `${(progress.value / totalFiles.value) * 100}%` }} />
             </div>
-            <small style={{ color: 'var(--text-tertiary)' }}>{progress.value}/{totalFiles.value}</small>
+            <small>{progress.value}/{totalFiles.value}</small>
           </div>
         )}
       </div>
       
       {isComplete.value && (
         <div className="card-glass" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Pipeline Results</h3>
+          
+          {/* Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: avgWER.value < 0.2 ? 'rgba(34, 197, 94, 0.1)' : avgWER.value < 0.4 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{(avgWER.value * 100).toFixed(1)}%</div>
+              <small>Avg WER</small>
+            </div>
+            <div style={{ background: cefrAccuracy.value > 0.5 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{(cefrAccuracy.value * 100).toFixed(0)}%</div>
+              <small>CEFR Accuracy</small>
+            </div>
+            <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{avgClarity.value.toFixed(0)}</div>
+              <small>Avg Clarity</small>
+            </div>
             <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{results.value.length}</div>
               <small>Files</small>
             </div>
-            <div style={{ background: averageWER.value < 0.15 ? 'rgba(34, 197, 94, 0.1)' : averageWER.value < 0.3 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{(averageWER.value * 100).toFixed(1)}%</div>
-              <small>Avg WER</small>
-            </div>
-            <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{(results.value.reduce((s, r) => s + r.processingTimeMs, 0) / 1000).toFixed(1)}s</div>
-              <small>Total Time</small>
-            </div>
           </div>
           
-          <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                <th style={{ textAlign: 'left', padding: '6px' }}>WER</th>
-                <th style={{ textAlign: 'left', padding: '6px' }}>Reference</th>
-                <th style={{ textAlign: 'left', padding: '6px' }}>Hypothesis</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.value.slice(0, 15).map(r => (
-                <tr key={r.fileId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <td style={{ padding: '6px', color: r.wer < 0.15 ? '#4ade80' : r.wer < 0.3 ? '#fbbf24' : '#f87171', fontWeight: 'bold' }}>
-                    {(r.wer * 100).toFixed(0)}%
-                  </td>
-                  <td style={{ padding: '6px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.reference}>
-                    {r.reference}
-                  </td>
-                  <td style={{ padding: '6px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.hypothesis}>
-                    {r.hypothesis}
-                  </td>
+          {/* Results Table */}
+          <div style={{ maxHeight: '400px', overflow: 'auto', fontSize: '0.75rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', position: 'sticky', top: 0, background: 'var(--card-bg, #1a1a1a)' }}>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>WER</th>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>CEFR</th>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>Clarity</th>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>Grammar</th>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>Words</th>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>Transcript Sample</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {results.value.map(r => (
+                  <tr key={r.fileId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '6px', color: r.wer < 0.2 ? '#4ade80' : r.wer < 0.4 ? '#fbbf24' : '#f87171', fontWeight: 'bold' }}>
+                      {(r.wer * 100).toFixed(0)}%
+                    </td>
+                    <td style={{ padding: '6px' }}>
+                      <span style={{ color: r.cefrMatch ? '#4ade80' : '#f87171' }}>
+                        {r.detectedCEFR}
+                      </span>
+                      <span style={{ color: 'var(--text-tertiary)', marginLeft: '4px' }}>
+                        ({r.labeledCEFR})
+                      </span>
+                    </td>
+                    <td style={{ padding: '6px' }}>{r.clarityScore}</td>
+                    <td style={{ padding: '6px', color: r.grammarIssues === 0 ? '#4ade80' : '#fbbf24' }}>
+                      {r.grammarIssues}
+                    </td>
+                    <td style={{ padding: '6px' }}>{r.wordCount}</td>
+                    <td style={{ padding: '6px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.hypothesis}>
+                      {r.hypothesis.slice(0, 60)}...
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
