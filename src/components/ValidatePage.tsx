@@ -1,7 +1,14 @@
 import { useSignal } from "@preact/signals";
-import { pipeline } from "@huggingface/transformers";
+import { pipeline, env } from "@huggingface/transformers";
+import { ModelSingleton } from "../logic/model-loader";
 import { computeMetrics } from "../logic/metrics-calculator";
 import { GrammarChecker } from "../logic/grammar-checker";
+
+// Configure local caching for Transformers.js
+// In browser environment, this uses the Cache API.
+// We enable it explicitly to fulfill user request for caching.
+env.allowLocalModels = true; 
+env.useBrowserCache = true;
 
 interface ValidationResult {
   fileId: string;
@@ -27,10 +34,13 @@ interface STMEntry {
 
 // All these Whisper models work with WebGPU (ONNX format)
 const WHISPER_MODELS = [
-  { id: 'Xenova/whisper-tiny.en', name: 'Tiny (39MB)', size: 39 },
-  { id: 'Xenova/whisper-base.en', name: 'Base (74MB)', size: 74 },
-  { id: 'Xenova/whisper-small.en', name: 'Small (241MB)', size: 241 },
-  { id: 'distil-whisper/distil-small.en', name: 'Distil Small (166MB)', size: 166 },
+  { id: 'Xenova/whisper-tiny.en', name: 'Tiny (English) (39MB)', size: 39 },
+  { id: 'Xenova/whisper-tiny', name: 'Tiny (Multilingual) (39MB)', size: 39 },
+  { id: 'Xenova/whisper-base.en', name: 'Base (English) (74MB)', size: 74 },
+  { id: 'Xenova/whisper-base', name: 'Base (Multilingual) (74MB)', size: 74 },
+  { id: 'Xenova/whisper-small.en', name: 'Small (English) (241MB)', size: 241 },
+  { id: 'onnx-community/distil-small.en', name: 'Distil Small (English) (166MB)', size: 166 },
+  { id: 'onnx-community/whisper-large-v3-turbo', name: 'Large v3 Turbo (800MB)', size: 800 },
 ];
 
 /**
@@ -120,13 +130,9 @@ export function ValidatePage() {
     
     try {
       status.value = `Loading ${selectedModel.value}...`;
-      const model = await pipeline('automatic-speech-recognition', selectedModel.value, {
-        device: 'webgpu',
-        dtype: 'fp32',
-        progress_callback: (data: any) => {
-          if (data.status === 'progress' && data.progress) {
-            status.value = `Loading model... ${Math.round(data.progress)}%`;
-          }
+      const model = await ModelSingleton.getInstance(selectedModel.value, (data: any) => {
+        if (data.status === 'progress' && data.progress) {
+          status.value = `Loading model... ${Math.round(data.progress)}%`;
         }
       });
 
@@ -169,9 +175,19 @@ export function ValidatePage() {
         try {
           const audioUrl = `/test-data/wav-dev/${fileId}.wav`; // Use converted WAV files
           const audioRes = await fetch(audioUrl);
-          if (!audioRes.ok) continue;
+          if (!audioRes.ok) {
+             console.warn(`Missing file: ${fileId} (${audioRes.status})`);
+             continue;
+          }
           
-          const blobUrl = URL.createObjectURL(await audioRes.blob());
+          const contentType = audioRes.headers.get('content-type');
+          if (contentType && contentType.includes('text/html')) {
+              console.warn(`File not found (served as HTML): ${fileId}`);
+              continue; // Skip SPA fallback responses
+          }
+
+          const blob = await audioRes.blob();
+          const blobUrl = URL.createObjectURL(blob);
           const startTime = Date.now();
           const output = await model(blobUrl, { return_timestamps: true });
           const processingTime = Date.now() - startTime;

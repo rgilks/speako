@@ -22,9 +22,7 @@ export default defineConfig({
         // Enable WebGPU
         launchOptions: {
           args: [
-            '--enable-features=Vulkan,UseSkiaRenderer',
             '--enable-unsafe-webgpu',
-            '--use-angle=vulkan',
           ],
         },
       },

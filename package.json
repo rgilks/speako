@@ -13,7 +13,9 @@
     "prepare": "husky",
     "deps:update": "npx npm-check-updates -u",
     "validate": "npx tsx scripts/validate.ts",
-    "validate:report": "npx tsx scripts/benchmark-report.ts"
+    "validate:report": "npx tsx scripts/benchmark-report.ts",
+    "prepare:data": "npx tsx scripts/prepare-validation-data.ts",
+    "prepare:models": "npx tsx scripts/download-models.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

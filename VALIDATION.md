@@ -13,6 +13,26 @@ open http://localhost:5173/#validate
 ```
 Select model, set file count, click "Start Validation".
 
+## Data Preparation
+
+Before running validation, you must prepare the audio files. The dataset comes as FLAC files, but the browser-based Whisper model requires 16kHz WAV files.
+
+Run the preparation script to convert the dataset:
+```bash
+npm run prepare:data
+```
+This requires `ffmpeg` to be installed. It will convert all files referenced in `dev-asr.tsv` found in `public/test-data/data` to `public/test-data/wav-dev`.
+
+## Local Models (Offline/CI)
+
+To support offline testing or improve consistency in CI, you can download the Whisper models locally:
+
+```bash
+npm run prepare:models
+```
+
+This will fetch the necessary ONNX and config files to `public/models/`. The application is configured to prefer these local files if they exist.
+
 ### Automated (Playwright)
 ```bash
 npm run test:e2e        # Headless

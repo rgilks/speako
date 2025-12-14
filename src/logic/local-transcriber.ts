@@ -30,7 +30,7 @@ export class LocalTranscriber implements ITranscriber {
       const fileProgress: Record<string, number> = {};
       let lastDisplayedProgress = -1;
       
-      this.model = await ModelSingleton.getInstance((data: any) => {
+      this.model = await ModelSingleton.getInstance('Xenova/whisper-base.en', (data: any) => {
         if (data.status === 'progress' && this.onProgress) {
           const fileName = data.file || 'model';
           fileProgress[fileName] = data.progress || 0;
