@@ -4,6 +4,7 @@ import { AnalysisResult } from "../../logic/grammar-checker";
 import { MetricsGrid } from "./MetricsGrid";
 import { TranscriptBox } from "./TranscriptBox";
 import { TeacherReport } from "./TeacherReport";
+import { AudioVisualizer } from "./AudioVisualizer";
 
 interface SessionResultsProps {
   metrics: Signal<any>;
@@ -29,7 +30,7 @@ export function SessionResults({
       <div className="dashboard-header">
           <div>
             <h2 className="heading-lg mb-1">Session Results</h2>
-            <p className="text-muted text-sm">Great job! Here's how you performed.</p>
+            <p className="text-muted text-sm">{metrics.value ? "Great job! Here's how you performed." : "Session completed. Review your results below."}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <span style={{ display: 'block', fontSize: '1.8rem', fontWeight: 'bold', lineHeight: 1 }}>
@@ -38,6 +39,13 @@ export function SessionResults({
             <span className="metric-label">Duration</span>
           </div>
       </div>
+
+      {transcript.value?.audioBlob && (
+        <AudioVisualizer 
+          audioBlob={transcript.value.audioBlob} 
+          words={transcript.value.words} 
+        />
+      )}
 
       {metrics.value ? (
       <div className="dashboard-layout">

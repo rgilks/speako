@@ -111,10 +111,10 @@ export class LocalTranscriber implements ITranscriber {
          text = output[0].text.trim();
       }
       
-      return { text, words };
+      return { text, words, audioBlob: new Blob([audioBlob], { type: 'audio/webm' }) };
     } catch (e) {
       console.error("Transcription error:", e);
-      return { text: "[Error during transcription]", words: [] };
+      return { text: "[Error during transcription]", words: [], audioBlob: new Blob([audioBlob], { type: 'audio/webm' })  };
     }
   }
 }

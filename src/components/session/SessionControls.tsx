@@ -46,8 +46,6 @@ export function SessionControls({
                     <div 
                         className="tooltip-container" 
                         style={{ position: 'relative', display: 'inline-block', cursor: 'help' }}
-                        title={statusText}
-                        onClick={() => alert(`System Status:\n\n${isAvailable ? '✅' : '⚠️'} ${statusText}`)}
                     >
                         <span style={{ 
                             fontSize: '0.7rem', 

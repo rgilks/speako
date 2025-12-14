@@ -8,6 +8,7 @@ export interface TranscriptionWord {
 export interface TranscriptionResult {
   text: string;
   words: TranscriptionWord[];
+  audioBlob?: Blob;
 }
 
 export interface ITranscriber {
