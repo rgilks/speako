@@ -1,8 +1,12 @@
 import { useSignal } from "@preact/signals";
 import { pipeline, env } from "@huggingface/transformers";
 import { ModelSingleton } from "../logic/model-loader";
-import { computeMetrics } from "../logic/metrics-calculator";
-import { GrammarChecker } from "../logic/grammar-checker";
+import { computeMetrics, Metrics } from "../logic/metrics-calculator";
+import { GrammarChecker, AnalysisResult } from "../logic/grammar-checker";
+import { AudioVisualizer } from "./session/AudioVisualizer";
+import { MetricsGrid } from "./session/MetricsGrid";
+import { TranscriptBox } from "./session/TranscriptBox";
+import { TeacherReport } from "./session/TeacherReport";
 
 // Configure local caching for Transformers.js
 // In browser environment, this uses the Cache API.
@@ -24,6 +28,11 @@ interface ValidationResult {
   clarityScore: number;
   grammarIssues: number;
   processingTimeMs: number;
+  // Full data for detail view
+  audioBlob?: Blob;
+  fullMetrics?: Metrics;
+  grammarAnalysis?: AnalysisResult;
+  words?: { word: string; start: number; end: number; score: number }[];
 }
 
 interface STMEntry {
@@ -56,12 +65,15 @@ export function ValidatePage() {
   const isRunning = useSignal(false);
   const isComplete = useSignal(false);
   const fileLimit = useSignal(10);
-  const selectedModel = useSignal(WHISPER_MODELS[1].id); // Default to Base
+  const selectedModel = useSignal(WHISPER_MODELS[3].id); // Default to Base Multilingual
 
   // Aggregated scores
   const avgWER = useSignal(0);
   const cefrAccuracy = useSignal(0);
   const avgClarity = useSignal(0);
+  
+  // Selected result for detail view
+  const selectedResult = useSignal<ValidationResult | null>(null);
 
   // Parse STM with CEFR labels
   function parseSTM(content: string): Map<string, STMEntry> {
@@ -189,12 +201,45 @@ export function ValidatePage() {
           const blob = await audioRes.blob();
           const blobUrl = URL.createObjectURL(blob);
           const startTime = Date.now();
-          const output = await model(blobUrl, { return_timestamps: true });
+          
+          // Build transcription options
+          const transcribeOptions: any = {
+            return_timestamps: true,
+            chunk_length_s: 30,         // Process audio in 30-second chunks
+            stride_length_s: 5,         // 5-second overlap between chunks for continuity
+            no_speech_threshold: 0.1,   // Very low - attempt transcription even for uncertain speech
+            logprob_threshold: -2.0,    // Lower threshold to allow less confident outputs
+            compression_ratio_threshold: 3.0  // Higher to allow more outputs through
+          };
+          
+          // For multilingual models (not ending in .en), specify language and task
+          if (!selectedModel.value.endsWith('.en')) {
+            transcribeOptions.language = 'en';
+            transcribeOptions.task = 'transcribe';
+          }
+          
+          const output = await model(blobUrl, transcribeOptions);
           const processingTime = Date.now() - startTime;
           URL.revokeObjectURL(blobUrl);
           
           const result = Array.isArray(output) ? output[0] : output;
           const hypothesis = (result?.text || '').trim();
+          
+          // Diagnostic logging for empty transcriptions
+          if (!hypothesis) {
+            console.warn(`[EMPTY_TRANSCRIPTION] ${fileId}:`, {
+              blobSize: blob.size,
+              blobType: blob.type,
+              processingTimeMs: processingTime,
+              rawOutputKeys: result ? Object.keys(result) : 'null',
+              textField: result?.text,
+              textLength: result?.text?.length ?? 0,
+              chunks: result?.chunks,
+              chunksLength: result?.chunks?.length ?? 0,
+              isArray: Array.isArray(output),
+              fullOutput: JSON.stringify(output).slice(0, 500)
+            });
+          }
           
           // Full pipeline
           const metrics = computeMetrics(hypothesis);
@@ -203,6 +248,14 @@ export function ValidatePage() {
           const wer = calculateWER(ref.transcript, hypothesis);
           const cefrMatch = metrics.cefr_level === ref.labeledCEFR || 
                            (ref.labeledCEFR === 'C' && metrics.cefr_level.startsWith('C'));
+          
+          // Extract words from chunks for audio visualizer
+          const words = result?.chunks?.map((c: any) => ({
+            word: c.text?.trim() || '',
+            start: c.timestamp?.[0] ?? 0,
+            end: c.timestamp?.[1] ?? 0,
+            score: 0.99
+          })) || [];
           
           validationResults.push({
             fileId,
@@ -215,7 +268,12 @@ export function ValidatePage() {
             wordCount: metrics.word_count,
             clarityScore: grammar.clarityScore,
             grammarIssues: grammar.issues.length,
-            processingTimeMs: processingTime
+            processingTimeMs: processingTime,
+            // Full data for detail view
+            audioBlob: blob,
+            fullMetrics: metrics,
+            grammarAnalysis: grammar,
+            words
           });
         } catch (e) {
           console.error(`Error: ${fileId}`, e);
@@ -253,6 +311,16 @@ export function ValidatePage() {
     }
     isRunning.value = false;
   }
+
+  // Expose for E2E testing
+  if (typeof window !== 'undefined') {
+    (window as any).startValidation = (modelId: string, limit: number) => {
+        selectedModel.value = modelId;
+        fileLimit.value = limit;
+        runValidation();
+    };
+  }
+
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
@@ -345,7 +413,18 @@ export function ValidatePage() {
               </thead>
               <tbody>
                 {results.value.map(r => (
-                  <tr key={r.fileId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <tr 
+                    key={r.fileId} 
+                    onClick={() => selectedResult.value = r}
+                    style={{ 
+                      borderBottom: '1px solid rgba(255,255,255,0.05)', 
+                      cursor: 'pointer',
+                      background: selectedResult.value?.fileId === r.fileId ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = selectedResult.value?.fileId === r.fileId ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = selectedResult.value?.fileId === r.fileId ? 'rgba(139, 92, 246, 0.2)' : 'transparent')}
+                  >
                     <td style={{ padding: '6px', color: r.wer < 0.2 ? '#4ade80' : r.wer < 0.4 ? '#fbbf24' : '#f87171', fontWeight: 'bold' }}>
                       {(r.wer * 100).toFixed(0)}%
                     </td>
@@ -369,6 +448,94 @@ export function ValidatePage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          
+          {/* Click hint */}
+          {!selectedResult.value && (
+            <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.85rem', marginTop: '1rem' }}>
+              👆 Click a row to see full results with audio visualizer
+            </p>
+          )}
+        </div>
+      )}
+      
+      {/* Detail View */}
+      {selectedResult.value && (
+        <div className="card-glass" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>📋 {selectedResult.value.fileId}</h3>
+            <button 
+              onClick={() => selectedResult.value = null}
+              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', color: 'inherit' }}
+            >
+              ✕ Close
+            </button>
+          </div>
+          
+          {/* Audio Visualizer */}
+          {selectedResult.value.audioBlob && (
+            <AudioVisualizer 
+              audioBlob={selectedResult.value.audioBlob} 
+              words={selectedResult.value.words || []} 
+            />
+          )}
+          
+          {/* Metrics Grid */}
+          {selectedResult.value.fullMetrics && (
+            <MetricsGrid 
+              metrics={{
+                ...selectedResult.value.fullMetrics,
+                wpm: 0,  // WPM not available in validation mode
+                pronunciation_score: selectedResult.value.fullMetrics.pronunciation_score ?? 0
+              }} 
+              clarityScore={selectedResult.value.clarityScore} 
+            />
+          )}
+          
+          {/* Reference vs Hypothesis Comparison */}
+          <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+              <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Reference (Expected)</h4>
+              <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{selectedResult.value.reference}</p>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+              <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Transcription (Detected)</h4>
+              <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{selectedResult.value.hypothesis}</p>
+            </div>
+          </div>
+          
+          {/* Teacher Report */}
+          {selectedResult.value.grammarAnalysis && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <TeacherReport 
+                analysis={selectedResult.value.grammarAnalysis} 
+                transcript={{ text: selectedResult.value.hypothesis, words: selectedResult.value.words || [] }}
+              />
+            </div>
+          )}
+          
+          {/* WER Details */}
+          <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', textAlign: 'center' }}>
+              <div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: selectedResult.value.wer < 0.2 ? '#4ade80' : selectedResult.value.wer < 0.4 ? '#fbbf24' : '#f87171' }}>
+                  {(selectedResult.value.wer * 100).toFixed(1)}%
+                </div>
+                <small>Word Error Rate</small>
+              </div>
+              <div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: selectedResult.value.cefrMatch ? '#4ade80' : '#f87171' }}>
+                  {selectedResult.value.detectedCEFR} / {selectedResult.value.labeledCEFR}
+                </div>
+                <small>Detected / Expected CEFR</small>
+              </div>
+              <div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+                  {selectedResult.value.processingTimeMs}ms
+                </div>
+                <small>Processing Time</small>
+              </div>
+            </div>
           </div>
         </div>
       )}

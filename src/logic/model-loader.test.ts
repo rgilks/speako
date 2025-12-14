@@ -3,8 +3,14 @@ import { ModelSingleton, getLoadingState, subscribeToLoadingState } from './mode
 
 // Mock the pipeline function
 const mockPipeline = vi.fn();
+
 vi.mock('@huggingface/transformers', () => ({
-    pipeline: (...args: any[]) => mockPipeline(...args)
+    pipeline: (...args: any[]) => mockPipeline(...args),
+    env: {
+        localModelPath: '',
+        allowLocalModels: false,
+        allowRemoteModels: true
+    }
 }));
 
 describe('ModelLoader', () => {
@@ -22,7 +28,12 @@ describe('ModelLoader', () => {
         const p1 = ModelSingleton.getInstance();
         const p2 = ModelSingleton.getInstance();
         
-        expect(p1).toBe(p2);
+        // Since getInstance is async, it returns a new Promise wrapper each time.
+        // We verify singleton behavior by checking the underlying pipeline is only called once.
+        const r1 = await p1;
+        const r2 = await p2;
+        
+        expect(r1).toBe(r2);
         expect(mockPipeline).toHaveBeenCalledTimes(1);
         
         await p1;

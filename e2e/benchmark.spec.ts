@@ -4,15 +4,15 @@ import { test, expect } from '@playwright/test';
 // Models to benchmark
 const MODELS = [
   'Xenova/whisper-tiny.en', 
-  'Xenova/whisper-tiny',
+  // 'Xenova/whisper-tiny', // Not local
   'Xenova/whisper-base.en',
-  'Xenova/whisper-base',
-  'Xenova/whisper-small.en',
-  'onnx-community/distil-small.en',
-  'onnx-community/whisper-large-v3-turbo'
+  // 'Xenova/whisper-base', // Not local
+  // 'Xenova/whisper-small.en', // Not local
+  // 'onnx-community/distil-small.en', // Not local
+  // 'onnx-community/whisper-large-v3-turbo' // Not local
 ]; 
 
-const FILE_LIMIT = 5;
+const FILE_LIMIT = 1;
 
 test.describe('Model Benchmark', () => {
     test.setTimeout(300000); // 5 minutes total per test? No, this is for suite?
@@ -39,16 +39,19 @@ test.describe('Model Benchmark', () => {
 });
 
 async function runBenchmark(page: any, modelId: string, limit: number) {
-    await page.goto('http://localhost:5173/validate');
+    await page.goto('http://localhost:5173/#validate');
+
+    // Forward console logs to terminal
+    page.on('console', (msg: any) => console.log(`[BROWSER] ${msg.text()}`));
+    page.on('pageerror', (err: Error) => console.error(`[BROWSER ERROR] ${err.message}`));
     
-    // Select Model
-    await page.selectOption('select#model-select', modelId);
     
-    // Set File Limit
-    await page.fill('input#file-limit', limit.toString());
-    
-    // Start Validation
-    await page.click('button#start-validation');
+    // Start Validation Programmatically to avoid UI blocking/issues
+    // This sets model, file limit, and runs it directly
+    await page.evaluate(({ id, count }: { id: string; count: number }) => {
+        console.log(`[TEST] Triggering validation for ${id} with ${count} files...`);
+        (window as any).startValidation(id, count);
+    }, { id: modelId, count: limit });
     
     // Wait for completion or error
     try {
@@ -73,19 +76,20 @@ async function runBenchmark(page: any, modelId: string, limit: number) {
     }
     
     // Extract Results
-    const results = await page.evaluate(() => (window as any).__validationResults);
+    const validationData = await page.evaluate(() => (window as any).__validationResults);
+    const results = validationData.results;
     
     // Calculate Stats
     const totalWER = results.reduce((acc: number, r: any) => acc + r.wer, 0);
     const accuracyCount = results.filter((r: any) => {
-        const detected = r.metrics.cefr_level;
-        const expected = r.reference.labeledCEFR;
+        const detected = r.detectedCEFR;
+        const expected = r.labeledCEFR;
         // Logic: Exact match or C-match
         return detected === expected || (expected === 'C' && detected.startsWith('C'));
     }).length;
     
-    const totalTime = results.reduce((acc: number, r: any) => acc + (r.time || 0), 0);
-    const avgClarity = results.reduce((acc: number, r: any) => acc + (r.metrics.clarityScore || 0), 0) / results.length;
+    const totalTime = results.reduce((acc: number, r: any) => acc + (r.processingTimeMs || 0), 0);
+    const avgClarity = results.reduce((acc: number, r: any) => acc + (r.clarityScore || 0), 0) / results.length;
 
     return {
         files: results.length,

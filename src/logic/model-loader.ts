@@ -36,7 +36,7 @@ export class ModelSingleton {
   static currentModelId: string | null = null;
   static preloadStarted = false;
   
-  static async getInstance(modelId: string = 'Xenova/whisper-base.en', progressCallback?: (data: any) => void) {
+  static async getInstance(modelId: string = 'Xenova/whisper-base', progressCallback?: (data: any) => void) {
     // If we're requesting a different model, or if we have no instance, we need to load/reload
     if (this.currentModelId !== modelId || !this.instance) {
         

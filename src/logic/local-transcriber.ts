@@ -30,7 +30,7 @@ export class LocalTranscriber implements ITranscriber {
       const fileProgress: Record<string, number> = {};
       let lastDisplayedProgress = -1;
       
-      this.model = await ModelSingleton.getInstance('Xenova/whisper-base.en', (data: any) => {
+      this.model = await ModelSingleton.getInstance('Xenova/whisper-base', (data: any) => {
         if (data.status === 'progress' && this.onProgress) {
           const fileName = data.file || 'model';
           fileProgress[fileName] = data.progress || 0;
@@ -89,7 +89,14 @@ export class LocalTranscriber implements ITranscriber {
     const url = URL.createObjectURL(audioBlob);
     
     try {
-      const output = await this.model(url, { return_timestamps: true });
+      const output = await this.model(url, { 
+        return_timestamps: true,
+        chunk_length_s: 30,       // Process audio in 30-second chunks
+        stride_length_s: 5,       // 5-second overlap between chunks for continuity
+        no_speech_threshold: 0.1, // Low threshold to catch accented speech
+        language: 'en',           // Force English for multilingual model
+        task: 'transcribe'        // Explicitly set task
+      });
       URL.revokeObjectURL(url);
       
       let text = "";

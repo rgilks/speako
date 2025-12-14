@@ -19,10 +19,13 @@ export default defineConfig({
       name: 'chromium',
       use: { 
         ...devices['Desktop Chrome'],
-        // Enable WebGPU
+        permissions: ['microphone'],
+        // Enable WebGPU and fake media
         launchOptions: {
           args: [
             '--enable-unsafe-webgpu',
+            '--use-fake-ui-for-media-stream',
+            '--use-fake-device-for-media-stream',
           ],
         },
       },

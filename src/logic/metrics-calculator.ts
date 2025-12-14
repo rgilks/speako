@@ -39,17 +39,18 @@ export function computeMetrics(text: string, words?: { word: string, score: numb
     : 0;
 
   // 2. Percentage of complex words
-  // Bonus: If word is long (>7 chars) or has academic suffix, count as complex even if "common"
+  // Use stricter criteria: word must be genuinely uncommon AND long
   let complexCount = 0;
   for (const word of textWords) {
       const clean = word.toLowerCase().replace(/[^a-z]/g, '');
       if (!clean) continue;
       
       const isCommon = COMMON_WORDS.has(clean);
-      const isLong = clean.length > 7;
+      const isLong = clean.length > 9; // Raised from 7 - 9+ chars indicates real complexity
       const hasAcademicSuffix = /((tion)|(ment)|(ence)|(ance)|(ity)|(ive)|(ous)|(ism)|(ist))$/.test(clean);
       
-      if (!isCommon || isLong || hasAcademicSuffix) {
+      // Only count as complex if BOTH uncommon AND (long OR academic)
+      if (!isCommon && (isLong || hasAcademicSuffix)) {
           complexCount++;
       }
   }
@@ -59,34 +60,34 @@ export function computeMetrics(text: string, words?: { word: string, score: numb
     : 0;
 
   // Score calculation (0-100 scale roughly)
-  // Tuned for speech:
-  // Sentence len: >15 is high (C2), was 25
-  // Complex ratio: >18% is high (C2), was 25%
+  // Tuned for spoken language from non-native speakers:
+  // - Short sentences are normal in speech
+  // - Lower vocabulary complexity is expected
   
-  const sentScore = (Math.min(avgSentenceLen, 15) / 15) * 50; // Max 50 points
-  const vocabScore = (Math.min(complexRatio, 0.18) / 0.18) * 50; // Max 50 points
+  // Sentence length: avg of 12+ words = high complexity for spoken language
+  const sentScore = (Math.min(avgSentenceLen, 12) / 12) * 40; // Max 40 points
+  // Complex vocabulary: even 10% complex words is high for spoken language  
+  const vocabScore = (Math.min(complexRatio, 0.10) / 0.10) * 40; // Max 40 points
   let totalScore = sentScore + vocabScore;
 
-  // 3. Grammar Clarity Integration
+  // 3. Grammar Clarity Integration (max 20 points)
   const { clarityScore } = GrammarChecker.check(text);
-  if (clarityScore > 80) {
-      totalScore += 5; // Bonus for high clarity
-  } else if (clarityScore < 40) {
-      totalScore -= 5; // Penalty for poor clarity
-  }
+  totalScore += (clarityScore / 100) * 20; // Up to 20 bonus points for perfect clarity
   
+  // CEFR thresholds adjusted for spoken language
+  // Most non-native speakers in B1-B2 range will have scores 30-60
   let cefrLevel: string;
   if (word_count < 10) {
     cefrLevel = "A1"; // Too short to judge
-  } else if (totalScore < 20) {
+  } else if (totalScore < 25) {
     cefrLevel = "A1";
   } else if (totalScore < 40) {
     cefrLevel = "A2";
-  } else if (totalScore < 60) {
+  } else if (totalScore < 55) {
     cefrLevel = "B1";
-  } else if (totalScore < 80) {
+  } else if (totalScore < 70) {
     cefrLevel = "B2";
-  } else if (totalScore < 90) {
+  } else if (totalScore < 85) {
     cefrLevel = "C1";
   } else {
     cefrLevel = "C2";
