@@ -497,6 +497,7 @@ def main(
 @app.function(
     image=training_image,  # Use training image which has mounts
     volumes={"/models": volume}, 
+    gpu="T4",
     timeout=7200
 )
 def run_full_pipeline(quick_test: bool = False):
