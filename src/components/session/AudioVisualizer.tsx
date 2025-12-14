@@ -26,8 +26,8 @@ interface WordStats {
 }
 
 function getScoreCategory(score: number): 'high' | 'medium' | 'low' {
-  if (score >= 0.9) return 'high';
-  if (score >= 0.7) return 'medium';
+  if (score >= 0.98) return 'high';
+  if (score >= 0.90) return 'medium';
   return 'low';
 }
 
@@ -327,10 +327,10 @@ export function AudioVisualizer({ audioBlob, words }: AudioVisualizerProps) {
         let color = 'rgba(34, 197, 94, 0.15)';
         let borderColor = 'rgba(34, 197, 94, 0.6)';
         
-        if (word.score < 0.7) {
+        if (word.score < 0.90) {
           color = 'rgba(239, 68, 68, 0.25)';
           borderColor = 'rgba(239, 68, 68, 0.8)';
-        } else if (word.score < 0.9) {
+        } else if (word.score < 0.98) {
           color = 'rgba(245, 158, 11, 0.2)';
           borderColor = 'rgba(245, 158, 11, 0.7)';
         }
