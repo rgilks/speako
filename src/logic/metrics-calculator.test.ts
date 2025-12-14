@@ -80,5 +80,27 @@ describe('metrics-calculator', () => {
         // Common: the, is. Complex: xylophone, loud.
         expect(metrics.complex_words).toBe(2);
     });
+
+    it('bonuses long words and academic suffixes even if common', () => {
+        // "important" is in COMMON_WORDS but is 9 chars long -> Complex
+        // "university" is in COMMON_WORDS but ends in -ity -> Complex
+        // "information" ends in -tion -> Complex
+        const text = "important university information"; 
+        const metrics = computeMetrics(text);
+        expect(metrics.complex_words).toBe(3);
+        // This confirms our new heuristic is working to boost complexity for spoken language
+    });
+    it('incorporates grammar clarity bonus for high quality text', () => {
+        // High clarity text: "The quick brown fox jumps over the lazy dog."
+        // This is grammatically correct and clear.
+        const text = "The quick brown fox jumps over the lazy dog.";
+        const metrics = computeMetrics(text);
+        
+        // We expect normal execution. The bonus (+5) might not change level for this short sentence,
+        // but it ensures the integration doesn't crash.
+        expect(metrics.cefr_level).toBeDefined();
+        // Since it's short, it's likely A1 or A2.
+        expect(["A1", "A2"]).toContain(metrics.cefr_level);
+    });
   });
 });

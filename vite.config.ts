@@ -68,7 +68,7 @@ export default defineConfig({
   // Serve test-data directory for validation
   server: {
     fs: {
-      allow: ['..', './test-data']
+      allow: ['..', './test-data', '/Users/robertgilks/Desktop/sandi-corpus-2025']
     }
   },
   resolve: {

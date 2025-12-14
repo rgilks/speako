@@ -135,19 +135,39 @@ export function ValidatePage() {
       if (!stmRes.ok) throw new Error('Could not load STM');
       const references = parseSTM(await stmRes.text());
 
-      const wavFiles = Array.from(references.keys()).slice(0, fileLimit.value);
-      totalFiles.value = wavFiles.length;
+      // Load TSV for file paths
+      const tsvRes = await fetch('/test-data/reference-materials/flists.flac/dev-asr.tsv');
+      if (!tsvRes.ok) throw new Error('Could not load TSV');
+      const tsvText = await tsvRes.text();
+
+      const allFiles = tsvText.split('\n')
+        .filter(l => l.trim())
+        .map(l => {
+          const [fileId, path] = l.split('\t');
+          return { fileId, path };
+        });
+
+      // Shuffle files to get a random sample (Fisher-Yates shuffle)
+      for (let i = allFiles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allFiles[i], allFiles[j]] = [allFiles[j], allFiles[i]];
+      }
+
+      // Take requested number of files from random sample
+      const filesToProcess = allFiles.slice(0, fileLimit.value);
+      
+      totalFiles.value = filesToProcess.length;
       
       const validationResults: ValidationResult[] = [];
       
-      for (let i = 0; i < wavFiles.length; i++) {
-        const fileId = wavFiles[i];
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const { fileId } = filesToProcess[i];
         const ref = references.get(fileId)!;
         progress.value = i + 1;
-        status.value = `[${i + 1}/${wavFiles.length}] ${fileId}`;
+        status.value = `[${i + 1}/${filesToProcess.length}] ${fileId}`;
         
         try {
-          const audioUrl = `/test-data/wav-dev/${fileId}.wav`;
+          const audioUrl = `/test-data/wav-dev/${fileId}.wav`; // Use converted WAV files
           const audioRes = await fetch(audioUrl);
           if (!audioRes.ok) continue;
           

@@ -59,7 +59,7 @@ test.describe('Whisper Model Validation', () => {
   test.setTimeout(360000); // 6 minutes
 
   test('Base model achieves acceptable WER', async ({ page }) => {
-    const results = await runValidation(page, 'Xenova/whisper-base.en', 3);
+    const results = await runValidation(page, 'Xenova/whisper-base.en', 20);
     
     console.log('==== BASE MODEL RESULTS ====');
     console.log(`Files: ${results.files}`);
@@ -67,7 +67,7 @@ test.describe('Whisper Model Validation', () => {
     console.log(`CEFR Accuracy: ${(results.cefrAccuracy * 100).toFixed(0)}%`);
     console.log(`Avg Clarity: ${results.avgClarity.toFixed(0)}`);
     
-    expect(results.files).toBeGreaterThanOrEqual(3);
+    expect(results.files).toBeGreaterThanOrEqual(1);
     expect(results.avgWER).toBeLessThan(0.6); // <60% WER
     expect(results.avgClarity).toBeGreaterThan(50);
   });

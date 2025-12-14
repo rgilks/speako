@@ -1,4 +1,5 @@
 import { COMMON_WORDS } from './common-words';
+import { GrammarChecker } from './grammar-checker';
 
 export interface Metrics {
   word_count: number;
@@ -27,42 +28,53 @@ export function computeMetrics(text: string, words?: { word: string, score: numb
     pronunciation_score = Math.round((totalScore / words.length) * 100);
   }
 
-  let complexCount = 0;
-
-  // Normalize and analyze words
-  for (const word of textWords) { // Changed from transcript.split to textWords
-    const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '');
-    if (!cleanWord) continue;
-
-
-    if (!COMMON_WORDS.has(cleanWord)) {
-      complexCount++;
-    }
-  }
-
-  // Heuristic for CEFR
+  // Heuristic for CEFR (Improved for Spoken Language)
   // Based on sentence length and vocabulary complexity
   
   // 1. Average sentence length
-  const sentences = text.split(/[.!?]/).filter(s => s.trim().length > 0);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const validSentenceCount = sentences.length;
   const avgSentenceLen = validSentenceCount > 0
     ? word_count / validSentenceCount
     : 0;
 
   // 2. Percentage of complex words
+  // Bonus: If word is long (>7 chars) or has academic suffix, count as complex even if "common"
+  let complexCount = 0;
+  for (const word of textWords) {
+      const clean = word.toLowerCase().replace(/[^a-z]/g, '');
+      if (!clean) continue;
+      
+      const isCommon = COMMON_WORDS.has(clean);
+      const isLong = clean.length > 7;
+      const hasAcademicSuffix = /((tion)|(ment)|(ence)|(ance)|(ity)|(ive)|(ous)|(ism)|(ist))$/.test(clean);
+      
+      if (!isCommon || isLong || hasAcademicSuffix) {
+          complexCount++;
+      }
+  }
+
   const complexRatio = word_count > 0
     ? complexCount / word_count
     : 0;
 
   // Score calculation (0-100 scale roughly)
-  // Sentence len: >20 is high (C2), <5 is low (A1)
-  // Complex ratio: >20% is high (C2), <5% is low (A1)
+  // Tuned for speech:
+  // Sentence len: >15 is high (C2), was 25
+  // Complex ratio: >18% is high (C2), was 25%
   
-  const sentScore = (Math.min(avgSentenceLen, 25) / 25) * 50; // Max 50 points
-  const vocabScore = (Math.min(complexRatio, 0.25) / 0.25) * 50; // Max 50 points
-  const totalScore = sentScore + vocabScore;
+  const sentScore = (Math.min(avgSentenceLen, 15) / 15) * 50; // Max 50 points
+  const vocabScore = (Math.min(complexRatio, 0.18) / 0.18) * 50; // Max 50 points
+  let totalScore = sentScore + vocabScore;
 
+  // 3. Grammar Clarity Integration
+  const { clarityScore } = GrammarChecker.check(text);
+  if (clarityScore > 80) {
+      totalScore += 5; // Bonus for high clarity
+  } else if (clarityScore < 40) {
+      totalScore -= 5; // Penalty for poor clarity
+  }
+  
   let cefrLevel: string;
   if (word_count < 10) {
     cefrLevel = "A1"; // Too short to judge
