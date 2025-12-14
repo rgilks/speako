@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FakeTranscriber } from '../src/logic/transcriber';
+import { FakeTranscriber } from './transcriber';
 
 describe('FakeTranscriber', () => {
   it('returns a fixed string after stop', async () => {

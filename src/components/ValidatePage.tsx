@@ -293,7 +293,7 @@ export function ValidatePage() {
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', position: 'sticky', top: 0, background: 'var(--card-bg, #1a1a1a)' }}>
                   <th style={{ textAlign: 'left', padding: '6px' }}>WER</th>
-                  <th style={{ textAlign: 'left', padding: '6px' }}>CEFR</th>
+                  <th style={{ textAlign: 'left', padding: '6px' }}>CEFR (Detected/Expected)</th>
                   <th style={{ textAlign: 'left', padding: '6px' }}>Clarity</th>
                   <th style={{ textAlign: 'left', padding: '6px' }}>Grammar</th>
                   <th style={{ textAlign: 'left', padding: '6px' }}>Words</th>
