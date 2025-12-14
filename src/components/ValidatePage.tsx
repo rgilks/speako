@@ -197,13 +197,20 @@ export function ValidatePage() {
       isComplete.value = true;
       status.value = `Done! ${validationResults.length} files processed.`;
       
-      console.log('VALIDATION_RESULTS:', JSON.stringify({
+      // Build final results object
+      const finalResults = {
         model: selectedModel.value,
         avgWER: avgWER.value,
         cefrAccuracy: cefrAccuracy.value,
         avgClarity: avgClarity.value,
+        files: validationResults.length,
         results: validationResults
-      }, null, 2));
+      };
+      
+      // Expose for Playwright tests
+      (window as any).__validationResults = finalResults;
+      
+      console.log('VALIDATION_RESULTS:', JSON.stringify(finalResults, null, 2));
       
     } catch (e) {
       status.value = `Error: ${e}`;
