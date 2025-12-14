@@ -15,7 +15,8 @@
     "validate": "npx tsx scripts/validate.ts",
     "validate:report": "npx tsx scripts/benchmark-report.ts",
     "prepare:data": "npx tsx scripts/prepare-validation-data.ts",
-    "prepare:models": "npx tsx scripts/download-models.ts"
+    "prepare:models": "npx tsx scripts/download-models.ts",
+    "cefr:install": "mkdir -p public/models/cefr-classifier && cp cefr-minilm-onnx/* public/models/cefr-classifier/ && cp public/models/cefr-classifier/model_quantized.onnx public/models/cefr-classifier/model.onnx && echo '✅ CEFR model installed to public/models/cefr-classifier'"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

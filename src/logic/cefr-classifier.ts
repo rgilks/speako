@@ -47,9 +47,14 @@ export async function loadCEFRClassifier(
   loadError = null;
   
   try {
-    console.log(`[CEFRClassifier] Loading ${modelId}...`);
+    // For local models, resolve to absolute URL
+    let resolvedModelId = modelId;
+    if (modelId.startsWith('/')) {
+      resolvedModelId = `${window.location.origin}${modelId}`;
+    }
+    console.log(`[CEFRClassifier] Loading ${resolvedModelId}...`);
     
-    classifier = await pipeline('text-classification', modelId, {
+    classifier = await pipeline('text-classification', resolvedModelId, {
       device: 'webgpu',
       dtype: 'fp32',
       progress_callback: (data: any) => {
