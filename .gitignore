@@ -16,3 +16,6 @@ e2e/results.json
 public/models/
 test-data/
 cefr-minilm-onnx/
+
+ml/__pycache__/
+
