@@ -90,7 +90,7 @@ export function useSessionManager() {
             // Start loading CEFR classifier in background (non-blocking)
             // This way the model is ready by the time user finishes speaking
             if (!isCEFRClassifierReady()) {
-                loadCEFRClassifier('/models/cefr-classifier')
+                loadCEFRClassifier()
                     .then(() => console.log("[SessionManager] CEFR classifier loaded (background)"))
                     .catch(e => console.warn("[SessionManager] CEFR classifier unavailable, will use heuristic", e));
             }
@@ -152,7 +152,7 @@ export function useSessionManager() {
             if (!isCEFRClassifierReady()) {
                 try {
                     statusMsg.value = "Loading CEFR model...";
-                    await loadCEFRClassifier('/models/cefr-classifier');
+                    await loadCEFRClassifier();
                     console.log("[SessionManager] CEFR classifier loaded");
                 } catch (e) {
                     console.warn("[SessionManager] CEFR classifier not available, using heuristic", e);

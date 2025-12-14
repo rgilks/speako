@@ -154,7 +154,7 @@ export function ValidatePage() {
       if (!isCEFRClassifierReady()) {
         status.value = "Loading CEFR classifier...";
         try {
-          await loadCEFRClassifier('/models/cefr-classifier', (p) => {
+          await loadCEFRClassifier(undefined, (p) => {
             status.value = `Loading CEFR classifier... ${Math.round(p)}%`;
           });
           console.log('[Validation] CEFR classifier loaded successfully');

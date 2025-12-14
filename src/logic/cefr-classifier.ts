@@ -22,9 +22,9 @@ let classifier: any = null;
 let isLoading = false;
 let loadError: string | null = null;
 
-// Local model path - served from public/models/cefr-classifier
-// After publishing to HuggingFace, change to 'your-username/cefr-distilbert-onnx'
-const DEFAULT_MODEL = '/models/cefr-classifier';
+// HuggingFace model for CEFR classification
+// This is a fine-tuned DistilBERT model trained on CEFR-labeled speech transcripts
+const DEFAULT_MODEL = 'robg/speako-cefr';
 
 /**
  * Load the CEFR classifier model.
@@ -47,14 +47,9 @@ export async function loadCEFRClassifier(
   loadError = null;
   
   try {
-    // For local models, resolve to absolute URL
-    let resolvedModelId = modelId;
-    if (modelId.startsWith('/')) {
-      resolvedModelId = `${window.location.origin}${modelId}`;
-    }
-    console.log(`[CEFRClassifier] Loading ${resolvedModelId}...`);
+    console.log(`[CEFRClassifier] Loading ${modelId}...`);
     
-    classifier = await pipeline('text-classification', resolvedModelId, {
+    classifier = await pipeline('text-classification', modelId, {
       device: 'webgpu',
       dtype: 'fp32',
       progress_callback: (data: any) => {
