@@ -102,3 +102,57 @@ export function computeMetrics(text: string, words?: { word: string, score: numb
     pronunciation_score
   };
 }
+
+// ============================================================================
+// ML-BASED CEFR PREDICTION
+// ============================================================================
+
+import { 
+  isCEFRClassifierReady, 
+  predictCEFR, 
+  estimateCEFRHeuristic,
+  type CEFRPrediction 
+} from './cefr-classifier';
+
+export interface MetricsWithConfidence extends Metrics {
+  cefr_confidence?: number;
+  cefr_method: 'ml' | 'heuristic';
+}
+
+/**
+ * Compute metrics with ML-based CEFR prediction when classifier is available.
+ * Falls back to heuristic when ML model isn't loaded.
+ */
+export async function computeMetricsWithML(
+  text: string, 
+  words?: { word: string, score: number }[]
+): Promise<MetricsWithConfidence> {
+  // Get base metrics (word count, pronunciation, etc.)
+  const baseMetrics = computeMetrics(text, words);
+  
+  // Try ML-based CEFR prediction
+  let cefrPrediction: CEFRPrediction;
+  let method: 'ml' | 'heuristic' = 'heuristic';
+  
+  if (isCEFRClassifierReady()) {
+    try {
+      cefrPrediction = await predictCEFR(text);
+      method = 'ml';
+      console.log(`[MetricsCalculator] ML CEFR prediction: ${cefrPrediction.level} (${(cefrPrediction.confidence * 100).toFixed(1)}%)`);
+    } catch (error) {
+      console.warn('[MetricsCalculator] ML prediction failed, using heuristic:', error);
+      cefrPrediction = estimateCEFRHeuristic(text);
+    }
+  } else {
+    // Use heuristic fallback
+    cefrPrediction = estimateCEFRHeuristic(text);
+    console.log(`[MetricsCalculator] Using heuristic CEFR: ${cefrPrediction.level}`);
+  }
+  
+  return {
+    ...baseMetrics,
+    cefr_level: cefrPrediction.level,
+    cefr_confidence: cefrPrediction.confidence,
+    cefr_method: method
+  };
+}

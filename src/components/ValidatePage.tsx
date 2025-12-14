@@ -1,8 +1,9 @@
 import { useSignal } from "@preact/signals";
 import { pipeline, env } from "@huggingface/transformers";
 import { ModelSingleton } from "../logic/model-loader";
-import { computeMetrics, Metrics } from "../logic/metrics-calculator";
+import { computeMetricsWithML, Metrics, MetricsWithConfidence } from "../logic/metrics-calculator";
 import { GrammarChecker, AnalysisResult } from "../logic/grammar-checker";
+import { loadCEFRClassifier, isCEFRClassifierReady, getCEFRClassifierState } from "../logic/cefr-classifier";
 import { AudioVisualizer } from "./session/AudioVisualizer";
 import { MetricsGrid } from "./session/MetricsGrid";
 import { TranscriptBox } from "./session/TranscriptBox";
@@ -141,12 +142,26 @@ export function ValidatePage() {
     results.value = [];
     
     try {
+      // Load Whisper model
       status.value = `Loading ${selectedModel.value}...`;
       const model = await ModelSingleton.getInstance(selectedModel.value, (data: any) => {
         if (data.status === 'progress' && data.progress) {
-          status.value = `Loading model... ${Math.round(data.progress)}%`;
+          status.value = `Loading Whisper... ${Math.round(data.progress)}%`;
         }
       });
+      
+      // Load CEFR classifier (if not already loaded)
+      if (!isCEFRClassifierReady()) {
+        status.value = "Loading CEFR classifier...";
+        try {
+          await loadCEFRClassifier('/models/cefr-classifier', (p) => {
+            status.value = `Loading CEFR classifier... ${Math.round(p)}%`;
+          });
+          console.log('[Validation] CEFR classifier loaded successfully');
+        } catch (e) {
+          console.warn('[Validation] CEFR classifier not available, using heuristic fallback:', e);
+        }
+      }
 
       status.value = "Loading references...";
       const stmRes = await fetch('/test-data/reference-materials/stms/dev-asr.stm');
@@ -241,13 +256,15 @@ export function ValidatePage() {
             });
           }
           
-          // Full pipeline
-          const metrics = computeMetrics(hypothesis);
+          // Full pipeline with ML-based CEFR detection
+          const metrics = await computeMetricsWithML(hypothesis);
           const grammar = GrammarChecker.check(hypothesis);
           
           const wer = calculateWER(ref.transcript, hypothesis);
           const cefrMatch = metrics.cefr_level === ref.labeledCEFR || 
                            (ref.labeledCEFR === 'C' && metrics.cefr_level.startsWith('C'));
+          
+          console.log(`[Validation] ${fileId}: CEFR=${metrics.cefr_level} (${metrics.cefr_method}, ${(metrics.cefr_confidence ?? 0) * 100}%) vs labeled=${ref.labeledCEFR}`);
           
           // Extract words from chunks for audio visualizer
           const words = result?.chunks?.map((c: any) => ({

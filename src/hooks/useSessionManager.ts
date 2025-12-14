@@ -2,7 +2,8 @@ import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 // Adjust imports to valid relative paths
 import { LocalTranscriber, subscribeToLoadingState, ModelLoadingState } from "../logic/local-transcriber";
-import { computeMetrics } from "../logic/metrics-calculator";
+import { computeMetricsWithML } from "../logic/metrics-calculator";
+import { loadCEFRClassifier, isCEFRClassifierReady } from "../logic/cefr-classifier";
 import { checkWebGPU } from "../logic/webgpu-check";
 import { TranscriptionResult } from "../logic/transcriber";
 import { GrammarChecker, AnalysisResult } from "../logic/grammar-checker";
@@ -85,6 +86,14 @@ export function useSessionManager() {
             }, 1000);
 
             statusMsg.value = "Speak now...";
+            
+            // Start loading CEFR classifier in background (non-blocking)
+            // This way the model is ready by the time user finishes speaking
+            if (!isCEFRClassifierReady()) {
+                loadCEFRClassifier('/models/cefr-classifier')
+                    .then(() => console.log("[SessionManager] CEFR classifier loaded (background)"))
+                    .catch(e => console.warn("[SessionManager] CEFR classifier unavailable, will use heuristic", e));
+            }
         } catch (e) {
             console.error("[SessionManager] Error starting transcription:", e);
             statusMsg.value = `Error starting: ${e}`;
@@ -138,15 +147,26 @@ export function useSessionManager() {
 
         try {
             console.log("[SessionManager] Calculating metrics...");
+            
+            // Load CEFR classifier if not ready (first use)
+            if (!isCEFRClassifierReady()) {
+                try {
+                    statusMsg.value = "Loading CEFR model...";
+                    await loadCEFRClassifier('/models/cefr-classifier');
+                    console.log("[SessionManager] CEFR classifier loaded");
+                } catch (e) {
+                    console.warn("[SessionManager] CEFR classifier not available, using heuristic", e);
+                }
+            }
 
-            const metricsResult = computeMetrics(result.text, result.words);
-            console.log("[SessionManager] Metrics calculated:", metricsResult);
+            const metricsResult = await computeMetricsWithML(result.text, result.words);
+            console.log(`[SessionManager] Metrics calculated (${metricsResult.cefr_method}):`, metricsResult);
 
             metrics.value = {
                 word_count: metricsResult.word_count,
                 wpm: Math.round(metricsResult.word_count / (lastDuration.value / 60)),
                 cefr_level: metricsResult.cefr_level,
-                cefr_description: "",
+                cefr_description: metricsResult.cefr_method === 'ml' ? `${(metricsResult.cefr_confidence! * 100).toFixed(0)}% confidence` : 'heuristic',
                 fluency_score: 0,
                 unique_words: metricsResult.unique_words,
                 complex_words: metricsResult.complex_words,

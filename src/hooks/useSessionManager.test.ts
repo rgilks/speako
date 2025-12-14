@@ -22,7 +22,23 @@ vi.mock('../logic/metrics-calculator', () => ({
         unique_words: 8,
         complex_words: 2,
         pronunciation_score: 90
+    }),
+    computeMetricsWithML: vi.fn().mockResolvedValue({
+        word_count: 10,
+        cefr_level: "B2",
+        unique_words: 8,
+        complex_words: 2,
+        pronunciation_score: 90,
+        cefr_confidence: 0.85,
+        cefr_method: 'ml'
     })
+}));
+
+vi.mock('../logic/cefr-classifier', () => ({
+    loadCEFRClassifier: vi.fn().mockResolvedValue(undefined),
+    isCEFRClassifierReady: vi.fn().mockReturnValue(true),
+    predictCEFR: vi.fn().mockResolvedValue({ level: 'B2', confidence: 0.85, allScores: [] }),
+    estimateCEFRHeuristic: vi.fn().mockReturnValue({ level: 'B2', confidence: 0.5, allScores: [] })
 }));
 
 // We need to mock the internal behavior of LocalTranscriber to prevent actual WebGPU/Audio usage
