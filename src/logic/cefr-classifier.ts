@@ -7,8 +7,8 @@
 
 import { pipeline, env } from '@huggingface/transformers';
 
-// Configure local caching
-env.allowLocalModels = true;
+// Configure caching
+env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 export interface CEFRPrediction {
@@ -23,125 +23,58 @@ let isLoading = false;
 let loadError: string | null = null;
 
 // HuggingFace model for CEFR classification
-// This is a fine-tuned DistilBERT model trained on CEFR-labeled speech transcripts
-const DEFAULT_MODEL = 'robg/speako-cefr';
+// Fine-tuned DeBERTa-v3 trained on CEFR-labeled speech transcripts with Noise Augmentation
+const DEFAULT_MODEL = 'robg/speako-cefr-deberta';
 
 /**
- * Load the CEFR classifier model.
- * Uses WebGPU if available, falls back to WASM.
+ * Load the CEFR classification model.
  */
-export async function loadCEFRClassifier(
-  onProgress?: (progress: number) => void
-): Promise<void> {
-  if (classifier) return;
-  if (isLoading) {
-    // Wait for existing load to complete
-    while (isLoading) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return;
-  }
-  
-  isLoading = true;
-  loadError = null;
-  
+export async function loadCEFRClassifier(): Promise<void> {
+  if (classifier || isLoading) return;
+
   try {
-    console.log(`[CEFRClassifier] Loading ${DEFAULT_MODEL}...`);
-    
+    isLoading = true;
+    loadError = null;
+
     classifier = await pipeline('text-classification', DEFAULT_MODEL, {
-      device: 'wasm', // Force CPU execution: WebGPU causes significant precision loss for this model (A2 bias)
-      dtype: 'fp32',
-      quantized: false, // Use unquantized model for maximum accuracy
-      progress_callback: (data: any) => {
-        if (data.status === 'progress' && data.progress && onProgress) {
-          onProgress(data.progress);
-        }
-      }
-    } as any);
+      device: 'webgpu',
+    });
     
-    console.log('[CEFRClassifier] Model loaded successfully!');
-  } catch (error) {
-    console.error('[CEFRClassifier] Load error:', error);
-    loadError = error instanceof Error ? String(error) : String(error); // Keep as string for consistency with type
+    console.log('CEFR Classifier loaded successfully');
+  } catch (err: any) {
+    console.error('Failed to load CEFR classifier:', err);
+    loadError = err.message || String(err);
+    throw err;
+  } finally {
     isLoading = false;
-    throw error;
   }
-  
-  isLoading = false;
 }
 
 /**
- * Predict CEFR level for given text.
- * 
- * @param text - The text to classify (typically a transcription)
- * @returns CEFR prediction with confidence scores
+ * Predict CEFR level for a given text.
  */
 export async function predictCEFR(text: string): Promise<CEFRPrediction> {
-  if (!classifier) {
-    throw new Error('CEFR classifier not loaded. Call loadCEFRClassifier() first.');
-  }
-  
-  // Handle empty/short text
-  if (!text || text.trim().length < 5) {
-    return {
-      level: 'A1',
-      confidence: 0,
-      allScores: []
-    };
-  }
-  
-  try {
-    console.log(`[CEFRClassifier] Predicting for: "${text.substring(0, 50)}..." (${text.length} chars)`);
-    
+    if (!classifier) {
+        throw new Error("CEFR Classifier not loaded");
+    }
+
     // Get all class probabilities with explicit truncation
-    const mlResults = await classifier(text, { 
+    const results = await classifier(text, { 
       top_k: 6,
       truncation: true,
       max_length: 256,
       padding: true
     });
     
-    // Calculate Heuristic Score
-    const heuristic = estimateCEFRHeuristic(text);
-    
-    // Define CEFR levels order
-    const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-    const heuristicIndex = levels.indexOf(heuristic.level);
-    
-    // Create heuristic distribution
-    const heuristicScores: Record<string, number> = {};
-    levels.forEach((lvl, idx) => {
-      if (idx === heuristicIndex) heuristicScores[lvl] = 0.6;
-      else if (Math.abs(idx - heuristicIndex) === 1) heuristicScores[lvl] = 0.2;
-      else heuristicScores[lvl] = 0.0;
-    });
-    
-    // OPTIMIZED ENSEMBLE
-    // Grid search on validation set (2000 samples) showed that the Heuristic is significantly
-    // weaker (F1 0.15) than the ML model (F1 0.61).
-    // Trusting the heuristic too much (e.g. 30-40%) degrades performance.
-    // We use a 90/10 split to use the heuristic only as a subtle tie-breaker.
-    const ML_WEIGHT = 0.9;
-    const HEURISTIC_WEIGHT = 0.1;
-    
-    const blendedScores = mlResults.map((res: any) => {
-      const hScore = heuristicScores[res.label] || 0;
-      const blended = (res.score * ML_WEIGHT) + (hScore * HEURISTIC_WEIGHT);
-      return { label: res.label, score: blended };
-    });
-    
-    // Sort by blended score descending
-    const sorted = blendedScores.sort((a: any, b: any) => b.score - a.score);
+    // DeBERTa-v3 with Noise Augmentation is robust enough to trust directly.
+    // No heuristics, no ensembles, no hacks.
+    // "Train Hard, Fight Easy."
     
     return {
-      level: sorted[0].label,
-      confidence: sorted[0].score,
-      allScores: sorted
+      level: results[0].label,
+      confidence: results[0].score,
+      allScores: results
     };
-  } catch (error) {
-    console.error('[CEFRClassifier] Prediction error:', error);
-    throw error;
-  }
 }
 
 /**

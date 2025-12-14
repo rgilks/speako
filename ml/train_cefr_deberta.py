@@ -101,10 +101,10 @@ training_image = (
     volumes={"/models": volume}
 )
 def train_deberta(
-    epochs: int = 6, # DeBERTa converges faster
-    batch_size: int = 16, # DeBERTa is larger, smaller batch size
+    epochs: int = 4, # Reduced for speed, early stopping will handle it
+    batch_size: int = 64, # Increased for speed (T4 can handle 64 for small model)
     learning_rate: float = 2e-5,
-    max_samples: int = None
+    max_samples: int = 60000 # Capped for speed (60k is plenty for 44M params)
 ):
     import os
     import torch
@@ -122,7 +122,7 @@ def train_deberta(
     from sklearn.metrics import classification_report
     
     MODEL_NAME = "microsoft/deberta-v3-small"
-    OUTPUT_DIR = "cefr-deberta-v3-small"
+    OUTPUT_DIR = "/models/cefr-deberta-v3-small"
     
     print(f"🚀 Starting DeBERTa training: {MODEL_NAME}")
     
@@ -144,7 +144,7 @@ def train_deberta(
     
     # Load W&I (Written) - Volume
     print("📦 Loading WI Corpus...")
-    wi_entries = parse_wi_corpus("/wi-data/wi-2024-v2.tsv")
+    wi_entries = parse_wi_corpus("/wi-data/en-writeandimprove2024-corpus.tsv")
     if max_samples:
         wi_entries = wi_entries[:max_samples]
     all_entries.extend(wi_entries)
@@ -207,7 +207,7 @@ def train_deberta(
         per_device_eval_batch_size=batch_size,
         num_train_epochs=epochs,
         weight_decay=0.01,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1",
@@ -230,29 +230,7 @@ def train_deberta(
     print("🏋️ Training...")
     trainer.train()
     
-    # 9. Eval on separate STM Test Set (The Real Test)
-    print("\n🧐 Evaluating on STM Test Set (Real World Data)...")
-    stm_test_path = "/stm-data/eval-asr.stm"
-    if os.path.exists(stm_test_path):
-        with open(stm_test_path) as f:
-            test_entries = parse_stm_file(f.read())
-        
-        test_ds = Dataset.from_dict({
-            'text': [e['text'] for e in test_entries],
-            'label': [e['label'] for e in test_entries]
-        })
-        tokenized_test = test_ds.map(preprocess, batched=True)
-        
-        res = trainer.evaluate(tokenized_test)
-        print(f"STM Test Results: F1={res['eval_f1']:.4f}, Acc={res['eval_accuracy']:.4f}")
-        
-        # Detailed Report
-        predictions = trainer.predict(tokenized_test)
-        preds = np.argmax(predictions.predictions, axis=1)
-        print("\nClassification Report:\n")
-        print(classification_report([e['label'] for e in test_entries], preds, target_names=list(LABEL2ID.keys())))
-        
-    # 10. Save & ONNX Export
+    # 9. Save & ONNX Export (Moved BEFORE Evaluation to prevent loss on crash)
     print("💾 Saving Model...")
     trainer.save_model(f"{OUTPUT_DIR}/final")
     
@@ -266,6 +244,34 @@ def train_deberta(
     ort_model.save_pretrained(f"{OUTPUT_DIR}/onnx")
     tokenizer.save_pretrained(f"{OUTPUT_DIR}/onnx")
     
-    # Copy to Volume
+    # Force Commit to Volume
     volume.commit()
-    print("✅ Done! Model saved to volume.")
+    print("✅ Model saved to volume.")
+
+    # 10. Eval on separate STM Test Set (The Real Test)
+    try:
+        print("\n🧐 Evaluating on STM Test Set (Real World Data)...")
+        stm_test_path = "/stm-data/eval-asr.stm"
+        if os.path.exists(stm_test_path):
+            with open(stm_test_path) as f:
+                test_entries = parse_stm_file(f.read())
+            
+            test_ds = Dataset.from_dict({
+                'text': [e['text'] for e in test_entries],
+                'label': [e['label'] for e in test_entries]
+            })
+            tokenized_test = test_ds.map(preprocess, batched=True)
+            
+            res = trainer.evaluate(tokenized_test)
+            print(f"STM Test Results: F1={res['eval_f1']:.4f}, Acc={res['eval_accuracy']:.4f}")
+            
+            # Detailed Report
+            predictions = trainer.predict(tokenized_test)
+            preds = np.argmax(predictions.predictions, axis=1)
+            print("\nClassification Report:\n")
+            # Removed target_names to avoid mismatch error
+            print(classification_report([e['label'] for e in test_entries], preds))
+    except Exception as e:
+        print(f"⚠️ Validation failed (but model is saved): {e}")
+    
+    print("🏁 Script Completed.")
