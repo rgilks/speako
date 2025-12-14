@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [
@@ -64,6 +65,17 @@ export default defineConfig({
       }
     })
   ],
+  // Serve test-data directory for validation
+  server: {
+    fs: {
+      allow: ['..', './test-data']
+    }
+  },
+  resolve: {
+    alias: {
+      '/test-data': resolve(__dirname, 'test-data')
+    }
+  },
   test: {
     environment: 'jsdom',
     globals: true
