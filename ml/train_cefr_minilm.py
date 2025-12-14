@@ -21,6 +21,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "scikit-learn>=1.3.0",
     "torch>=2.1.0",
     "numpy<2.0.0",
+    "pandas>=2.0.0",
     "optimum[onnxruntime]>=1.16.0"  # For ONNX conversion
 )
 
@@ -32,11 +33,7 @@ ID2LABEL = {v: k for k, v in LABEL2ID.items()}
 
 
 def parse_stm_file(content: str) -> list:
-    """Parse STM file format with CEFR labels.
-    
-    Format: <o,Q4,B2,P1> transcript text
-    Where B2 = CEFR level
-    """
+    """Parse STM file format with CEFR labels."""
     import re
     
     entries = []
@@ -45,20 +42,18 @@ def parse_stm_file(content: str) -> list:
         if not line or line.startswith(';;'):
             continue
         
-        # Extract label and text
         # Format: file_id channel speaker start end <label_string> transcript
         match = re.search(r'<[^>]+>', line)
         if not match:
             continue
         
-        label_str = match.group(0)  # <o,Q4,B2,P1>
+        label_str = match.group(0)
         text = line[match.end():].strip()
         
         if not text:
             continue
         
         # Extract CEFR level from label string
-        # Labels like: <o,Q4,B2,P1> -> B2
         parts = label_str.strip('<>').split(',')
         cefr = None
         for part in parts:
@@ -70,17 +65,62 @@ def parse_stm_file(content: str) -> list:
         if cefr and cefr in LABEL2ID:
             entries.append({
                 'text': text,
-                'cefr_level': cefr,
-                'label': LABEL2ID[cefr]
+                'label': LABEL2ID[cefr],
+                'source': 'stm'
             })
     
     return entries
 
 
-# Create image with local STM data embedded
-training_image = image.add_local_dir(
-    "dist/test-data/reference-materials/stms",
-    remote_path="/stm-data"
+def parse_wi_corpus(tsv_path: str) -> list:
+    """Parse Write & Improve Corpus TSV."""
+    import pandas as pd
+    import os
+    
+    if not os.path.exists(tsv_path):
+        print(f"⚠️ W&I corpus file not found: {tsv_path}")
+        return []
+        
+    print(f"   Parsing W&I corpus: {tsv_path}")
+    try:
+        df = pd.read_csv(tsv_path, sep='\t')
+        entries = []
+        
+        # Mapping for W&I labels (e.g. B1+ -> B1, A1 -> A1)
+        # Note: W&I has automarker_cefr_level and humannotator_cefr_level. 
+        # We'll prioritize human if available, else automarker? 
+        # Actually automarker is populated for all, human only for some.
+        # Let's use automarker_cefr_level as it covers all data.
+        
+        for _, row in df.iterrows():
+            text = row.get('text', '')
+            if not isinstance(text, str) or not text.strip():
+                continue
+                
+            raw_label = str(row.get('automarker_cefr_level', '')).strip().upper()
+            
+            # Map labels like "B1+" to "B1"
+            base_label = raw_label.replace('+', '').replace('-', '')
+            
+            if base_label in LABEL2ID:
+                entries.append({
+                    'text': text,
+                    'label': LABEL2ID[base_label],
+                    'source': 'wi'
+                })
+                
+        return entries
+    except Exception as e:
+        print(f"   ⚠️ Error parsing W&I corpus: {e}")
+        return []
+
+
+# Mount local STM data
+# Mount W&I corpus data
+training_image = (
+    image
+    .add_local_dir("dist/test-data/reference-materials/stms", remote_path="/stm-data")
+    .add_local_dir("/Users/robertgilks/Desktop/write-and-improve-corpus-2024-v2/whole-corpus", remote_path="/wi-data")
 )
 
 @app.function(
@@ -90,15 +130,17 @@ training_image = image.add_local_dir(
     volumes={"/models": volume}
 )
 def train(
-    model_name: str = "distilbert-base-uncased",  # Reliable small model for classification
+    model_name: str = "distilbert-base-uncased",
     output_name: str = "cefr-distilbert",
     epochs: int = 5,
     batch_size: int = 32,
     learning_rate: float = 2e-5,
-    max_samples: int = None,  # Limit samples for testing
-    use_local_data: bool = True  # Use your STM data instead of UniversalCEFR
+    max_samples: int = None,
+    use_stm: bool = True,
+    use_wi: bool = True,
+    use_hf: bool = True
 ):
-    """Train MiniLM on CEFR dataset."""
+    """Train CEFR classifier combining multiple datasets."""
     import numpy as np
     import evaluate
     from transformers import (
@@ -108,92 +150,77 @@ def train(
         Trainer,
         DataCollatorWithPadding
     )
-    from datasets import Dataset, DatasetDict
+    from datasets import Dataset, concatenate_datasets
     
     print(f"🚀 Starting CEFR training with {model_name}")
+    print(f"   Sources: STM={use_stm}, W&I={use_wi}, HF={use_hf}")
     
-    if use_local_data:
-        # Load from your STM files
-        print("📦 Loading local STM training data...")
+    all_datasets = []
+    
+    # 1. Load Local STM Data
+    if use_stm:
+        print("📦 Loading STM data...")
+        stm_entries = []
+        for fname in ["train-asr.stm", "dev-asr.stm", "eval-asr.stm"]:
+            try:
+                with open(f"/stm-data/{fname}", "r") as f:
+                    entries = parse_stm_file(f.read())
+                    stm_entries.extend(entries)
+            except Exception as e:
+                print(f"   ⚠️ Could not load {fname}: {e}")
         
-        train_entries = []
-        dev_entries = []  # For validation during training
-        eval_entries = []  # Held-out test set (never seen during training)
-        
-        # Load train data
-        try:
-            with open("/stm-data/train-asr.stm", "r") as f:
-                train_entries = parse_stm_file(f.read())
-            print(f"   Train entries: {len(train_entries)}")
-        except Exception as e:
-            print(f"   ⚠️ Could not load train-asr.stm: {e}")
-        
-        # Load dev data for validation during training
-        try:
-            with open("/stm-data/dev-asr.stm", "r") as f:
-                dev_entries = parse_stm_file(f.read())
-            print(f"   Dev (validation) entries: {len(dev_entries)}")
-        except Exception as e:
-            print(f"   ⚠️ Could not load dev-asr.stm: {e}")
-        
-        # Load eval data as held-out test set
-        try:
-            with open("/stm-data/eval-asr.stm", "r") as f:
-                eval_entries = parse_stm_file(f.read())
-            print(f"   Eval (held-out test) entries: {len(eval_entries)}")
-        except Exception as e:
-            print(f"   ⚠️ Could not load eval-asr.stm: {e}")
-        
-        if not train_entries:
-            raise ValueError("No training data loaded from STM files!")
-        
-        # Convert to HuggingFace datasets
-        train_dataset = Dataset.from_list(train_entries)
-        # Use dev for validation during training, fall back to split if missing
-        dev_dataset = Dataset.from_list(dev_entries) if dev_entries else train_dataset.train_test_split(test_size=0.1, seed=42)["test"]
-        
-        dataset = DatasetDict({
-            "train": train_dataset,
-            "test": dev_dataset  # "test" is used for validation during training
-        })
-        
-        # Store eval for final held-out testing (after training)
-        if eval_entries:
-            dataset["eval"] = Dataset.from_list(eval_entries)
-        
-        print(f"\n   📊 Data Split Summary:")
-        print(f"      Train: {len(dataset['train'])} (for training)")
-        print(f"      Dev: {len(dataset['test'])} (for validation during training)")
-        if "eval" in dataset:
-            print(f"      Eval: {len(dataset['eval'])} (held-out, for final testing)")
-        
-    else:
-        # Load UniversalCEFR from HuggingFace
+        if stm_entries:
+            print(f"   ✅ STM samples: {len(stm_entries)}")
+            all_datasets.append(Dataset.from_list(stm_entries))
+            
+    # 2. Load Write & Improve Corpus
+    if use_wi:
+        print("📦 Loading Write & Improve corpus...")
+        wi_entries = parse_wi_corpus("/wi-data/en-writeandimprove2024-corpus.tsv")
+        if wi_entries:
+            print(f"   ✅ W&I samples: {len(wi_entries)}")
+            all_datasets.append(Dataset.from_list(wi_entries))
+            
+    # 3. Load HuggingFace UniversalCEFR
+    if use_hf:
         print("📦 Loading UniversalCEFR dataset...")
-        from datasets import load_dataset
-        dataset = load_dataset("cefr-learning/UniversalCEFR")
+        try:
+            from datasets import load_dataset
+            hf_ds = load_dataset("cefr-learning/UniversalCEFR")
+            hf_ds = hf_ds.filter(lambda x: x["language"] == "en")
+            
+            def map_hf_labels(example):
+                label = example["cefr_level"].upper().strip()
+                return {
+                    "text": example["text"],
+                    "label": LABEL2ID.get(label, 0),
+                    "source": "hf"
+                }
+            
+            hf_ds = hf_ds.map(map_hf_labels, remove_columns=hf_ds["train"].column_names)
+            print(f"   ✅ HF samples: {len(hf_ds['train'])}")
+            all_datasets.append(hf_ds["train"])
+        except Exception as e:
+            print(f"   ⚠️ Could not load UniversalCEFR: {e}")
+
+    if not all_datasets:
+        raise ValueError("No training data loaded!")
         
-        # Filter to English only
-        dataset = dataset.filter(lambda x: x["language"] == "en")
-        print(f"   English samples: {len(dataset['train'])}")
-        
-        # Map CEFR labels to integers
-        def map_labels(example):
-            label = example["cefr_level"].upper().strip()
-            if label in LABEL2ID:
-                example["label"] = LABEL2ID[label]
-            else:
-                example["label"] = 0
-            return example
-        
-        dataset = dataset.map(map_labels)
-        dataset = dataset["train"].train_test_split(test_size=0.1, seed=42)
-        print(f"   Train: {len(dataset['train'])}, Test: {len(dataset['test'])}")
+    # Combine all
+    combined_dataset = concatenate_datasets(all_datasets)
+    print(f"📊 Total samples: {len(combined_dataset)}")
     
-    # Limit samples if specified (for testing)
+    # Shuffle and split
+    dataset = combined_dataset.shuffle(seed=42)
+    
+    # Limit samples if testing
     if max_samples:
-        dataset["train"] = dataset["train"].select(range(min(max_samples, len(dataset["train"]))))
-        print(f"   Limited to: {len(dataset['train'])} samples")
+        dataset = dataset.select(range(min(max_samples, len(dataset))))
+        print(f"   ⚠️ Limited to {len(dataset)} samples for testing")
+        
+    # Create train/test split (90/10)
+    dataset = dataset.train_test_split(test_size=0.1, seed=42)
+    print(f"   Train: {len(dataset['train'])}, Test: {len(dataset['test'])}")
     
     # Load model & tokenizer
     print(f"🤖 Loading {model_name}...")
@@ -215,8 +242,7 @@ def train(
         )
     
     print("🔤 Tokenizing...")
-    columns_to_remove = [c for c in dataset["train"].column_names if c != "label"]
-    tokenized = dataset.map(preprocess, batched=True, remove_columns=columns_to_remove)
+    tokenized = dataset.map(preprocess, batched=True)
     
     # Training args
     output_dir = f"/models/{output_name}"
@@ -227,7 +253,7 @@ def train(
         per_device_eval_batch_size=batch_size,
         num_train_epochs=epochs,
         weight_decay=0.01,
-        eval_strategy="epoch",  # Updated from deprecated evaluation_strategy
+        eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1",
@@ -273,7 +299,6 @@ def train(
     trainer.save_model(final_dir)
     tokenizer.save_pretrained(final_dir)
     
-    # Commit volume
     volume.commit()
     
     return {
@@ -291,26 +316,24 @@ def convert_to_onnx(model_dir: str = "/models/cefr-distilbert-final"):
     
     print(f"🔄 Converting {model_dir} to ONNX...")
     
-    # Load and export
     model = ORTModelForSequenceClassification.from_pretrained(
         model_dir,
         export=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     
-    # Save ONNX
     onnx_dir = f"{model_dir}-onnx"
     model.save_pretrained(onnx_dir)
     tokenizer.save_pretrained(onnx_dir)
     
     print(f"✅ Saved ONNX model to {onnx_dir}")
     
-    # Quantize for smaller size
+    # Quantize
     try:
         from optimum.onnxruntime import ORTQuantizer
         from optimum.onnxruntime.configuration import AutoQuantizationConfig
         
-        print("🗜️ Quantizing for smaller size...")
+        print("🗜️ Quantizing...")
         quantizer = ORTQuantizer.from_pretrained(onnx_dir)
         qconfig = AutoQuantizationConfig.avx512_vnni(is_static=False)
         
@@ -318,7 +341,6 @@ def convert_to_onnx(model_dir: str = "/models/cefr-distilbert-final"):
         quantizer.quantize(save_dir=quantized_dir, quantization_config=qconfig)
         
         print(f"✅ Saved quantized model to {quantized_dir}")
-        
         volume.commit()
         return {"onnx_dir": onnx_dir, "quantized_dir": quantized_dir}
     except Exception as e:
@@ -331,7 +353,6 @@ def convert_to_onnx(model_dir: str = "/models/cefr-distilbert-final"):
 def download_model(model_dir: str = "/models/cefr-distilbert-final-onnx-quantized"):
     """Download model files to local machine."""
     import os
-    import json
     
     files = []
     for root, dirs, filenames in os.walk(model_dir):
@@ -340,7 +361,6 @@ def download_model(model_dir: str = "/models/cefr-distilbert-final-onnx-quantize
             rel_path = os.path.relpath(path, model_dir)
             with open(path, "rb") as file:
                 files.append({"name": rel_path, "content": file.read()})
-    
     return files
 
 
@@ -349,30 +369,18 @@ def main(
     quick_test: bool = False,
     convert: bool = False,
     download: bool = False,
-    use_hf: bool = False  # Use HuggingFace UniversalCEFR instead of local STM data
+    use_all_data: bool = True
 ):
     """
-    Main entrypoint.
+    Main entrypoint for CEFR model training.
     
-    Examples:
-        # Quick test with local STM data (1000 samples)
-        modal run ml/train_cefr_minilm.py --quick-test
-        
-        # Full training with local STM data
-        modal run ml/train_cefr_minilm.py
-        
-        # Full training with HuggingFace UniversalCEFR
-        modal run ml/train_cefr_minilm.py --use-hf
-        
-        # Convert to ONNX after training
-        modal run ml/train_cefr_minilm.py --convert
-        
-        # Download model files
-        modal run ml/train_cefr_minilm.py --download
+    --quick-test: Run fast check with small sample
+    --convert: Convert saved model to ONNX
+    --download: Download converted model
+    --use-all-data: Use combined STM + W&I + HF data (default)
     """
     if convert:
-        result = convert_to_onnx.remote()
-        print(f"Conversion complete: {result}")
+        convert_to_onnx.remote()
     elif download:
         files = download_model.remote()
         import os
@@ -382,21 +390,16 @@ def main(
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as file:
                 file.write(f["content"])
-        print(f"Downloaded {len(files)} files to ./cefr-minilm-onnx")
+        print(f"Downloaded {len(files)} files.")
     else:
         # Training
         max_samples = 1000 if quick_test else None
         epochs = 2 if quick_test else 5
-        use_local_data = not use_hf
         
-        print(f"📊 Data source: {'HuggingFace UniversalCEFR' if use_hf else 'Local STM files'}")
-        
-        result = train.remote(
+        train.remote(
             max_samples=max_samples,
             epochs=epochs,
-            use_local_data=use_local_data
+            use_stm=True,
+            use_wi=True,
+            use_hf=True
         )
-        print(f"\n🎉 Training complete!")
-        print(f"   Accuracy: {result['accuracy']:.4f}")
-        print(f"   F1 Score: {result['f1']:.4f}")
-        print(f"   Model: {result['output_dir']}")
