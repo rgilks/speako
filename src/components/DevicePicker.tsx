@@ -11,9 +11,12 @@ interface AudioDevice {
   label: string;
 }
 
+const STORAGE_KEY = 'speako-selected-microphone';
+
 /**
  * Dropdown to select audio input device.
  * Requires microphone permission to see device labels.
+ * Persists selection to localStorage.
  */
 export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerProps) {
   const devices = useSignal<AudioDevice[]>([]);
@@ -37,9 +40,16 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
         devices.value = audioInputs;
         loading.value = false;
         
-        // Auto-select first device if none selected
+        // Try to restore saved device, or auto-select first
         if (!selectedDeviceId && audioInputs.length > 0) {
-          onDeviceChange(audioInputs[0].deviceId);
+          const savedDeviceId = localStorage.getItem(STORAGE_KEY);
+          const savedDeviceExists = savedDeviceId && audioInputs.some(d => d.deviceId === savedDeviceId);
+          
+          if (savedDeviceExists) {
+            onDeviceChange(savedDeviceId);
+          } else {
+            onDeviceChange(audioInputs[0].deviceId);
+          }
         }
       } catch (e) {
         console.error('[DevicePicker] Error loading devices:', e);
@@ -56,6 +66,12 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
       navigator.mediaDevices.removeEventListener('devicechange', loadDevices);
     };
   }, []);
+
+  // Save selection to localStorage when it changes
+  const handleDeviceChange = (deviceId: string) => {
+    localStorage.setItem(STORAGE_KEY, deviceId);
+    onDeviceChange(deviceId);
+  };
 
   if (loading.value) {
     return <p className="text-muted text-sm">Loading devices...</p>;
@@ -77,7 +93,7 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
       <select 
         className="device-picker-select"
         value={selectedDeviceId}
-        onChange={(e) => onDeviceChange((e.target as HTMLSelectElement).value)}
+        onChange={(e) => handleDeviceChange((e.target as HTMLSelectElement).value)}
       >
         {devices.value.map(device => (
           <option key={device.deviceId} value={device.deviceId}>

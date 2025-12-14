@@ -43,6 +43,7 @@ export function SessionManager() {
             view={view}
             statusMsg={statusMsg}
             elapsedTime={elapsedTime}
+            currentTopic={currentTopic}
             handleStop={handleStop}
             getAudioLevel={() => localTranscriber.getRecorder().getAudioLevel()}
         />

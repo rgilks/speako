@@ -166,7 +166,7 @@ export function SessionControls({
           cursor: modelLoadingState.value.isLoaded ? 'pointer' : 'not-allowed'
         }}
       >
-        {modelLoadingState.value.isLoaded ? 'Start Analysis' : 'Loading Model...'}
+        {modelLoadingState.value.isLoaded ? 'Start' : 'Loading Model...'}
       </button>
        {statusMsg.value && (
          <p className="status-badge" style={{marginTop: '2rem', animation: 'fadeIn 0.3s ease-out'}}>

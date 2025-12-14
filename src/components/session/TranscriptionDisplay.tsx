@@ -5,6 +5,7 @@ interface TranscriptionDisplayProps {
   view: Signal<"idle" | "recording" | "processing" | "results">;
   statusMsg: Signal<string>;
   elapsedTime: Signal<number>;
+  currentTopic: Signal<string>;
   handleStop: () => void;
   getAudioLevel: () => number;
 }
@@ -13,6 +14,7 @@ export function TranscriptionDisplay({
   view,
   statusMsg,
   elapsedTime,
+  currentTopic,
   handleStop,
   getAudioLevel
 }: TranscriptionDisplayProps) {
@@ -26,6 +28,35 @@ export function TranscriptionDisplay({
            </>
          ) : (
             <div className="recording-panel">
+                {/* Speaking Topic */}
+                <div style={{ 
+                  marginBottom: 'var(--spacing-lg)', 
+                  padding: 'var(--spacing-md)',
+                  background: 'rgba(139, 92, 246, 0.1)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(139, 92, 246, 0.2)'
+                }}>
+                  <span style={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 700, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em', 
+                    color: 'var(--accent-glow)',
+                    display: 'block',
+                    marginBottom: '4px'
+                  }}>
+                    Speaking Topic
+                  </span>
+                  <p style={{ 
+                    fontSize: '0.95rem', 
+                    lineHeight: '1.4', 
+                    color: 'var(--text-primary)',
+                    margin: 0
+                  }}>
+                    {currentTopic.value}
+                  </p>
+                </div>
+
                 {/* Elapsed Timer */}
                 <p className="elapsed-timer" style={{ textAlign: 'center' }}>
                   {Math.floor(elapsedTime.value / 60).toString().padStart(2, '0')}:
