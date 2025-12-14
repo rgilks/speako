@@ -2,3 +2,8 @@ node_modules
 target
 dist
 .DS_Store
+test-data
+
+# Validation output
+validation-results.json
+BENCHMARK.md
