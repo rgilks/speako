@@ -21,13 +21,28 @@ Speako is a local-first application designed for practicing exam-style English s
 Speako is a **pure frontend application** with **no backend server**.
 
 - **Frontend**: Vite + Preact + TypeScript
-- **Styling**: Zero-dependency Pure CSS (optimized for performance).
+- **Styling**: Zero-dependency Pure CSS.
 - **AI Models**: `Xenova/whisper-base.en` (running locally via ONNX).
-- **Audio**: Standard Web Audio API.
+- **State Management**: Signals (`@preact/signals`) for high-performance reactivity.
 
-This "Serverless AI" approach ensures maximum privacy, zero server costs, and offline capability.
+### Project Structure
+- `src/components`: UI components (split by feature).
+- `src/hooks`: Custom hooks (e.g., `useSessionManager`).
+- `src/logic`: Pure TS business logic (`local-transcriber`, `grammar-checker`, `model-loader`).
 
-### Running Locally
+## References
+
+- [Transformers.js](https://huggingface.co/docs/transformers.js/index) - Run Transformers in the browser.
+- [Preact](https://preactjs.com/) - Fast 3kB React alternative.
+- [Vite](https://vitejs.dev/) - Next Generation Frontend Tooling.
+- [Compromise](https://github.com/spencermountain/compromise) - Modest natural-language processing.
+- [WebGPU Status](https://github.com/gpuweb/gpuweb/wiki/Implementation-Status) - Browser support for WebGPU.
+
+## Developer Guide
+
+See [AGENTS.md](./AGENTS.md) for coding standards and agent instructions.
+
+## Running Locally
 
 ```bash
 # Install dependencies
