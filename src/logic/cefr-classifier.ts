@@ -6,6 +6,7 @@
  */
 
 import { pipeline, env } from '@huggingface/transformers';
+import { checkWebGPU } from './webgpu-check';
 
 // Configure caching
 env.allowLocalModels = false;
@@ -36,8 +37,14 @@ export async function loadCEFRClassifier(): Promise<void> {
     isLoading = true;
     loadError = null;
 
+    // Check WebGPU availability and determine device
+    const webGpuStatus = await checkWebGPU();
+    const device = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
+    
+    console.log(`Loading CEFR Classifier with ${device.toUpperCase()}${device === 'wasm' ? ' (WebGPU unavailable)' : ''}...`);
+
     classifier = await pipeline('text-classification', DEFAULT_MODEL, {
-      device: 'webgpu',
+      device: device,
     });
     
     console.log('CEFR Classifier loaded successfully');
