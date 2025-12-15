@@ -29,7 +29,7 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
       {result.audioBlob && (
         <AudioVisualizer 
           audioBlob={result.audioBlob} 
-          words={result.words || []} 
+          words={result.words}
         />
       )}
       

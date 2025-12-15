@@ -10,13 +10,12 @@ export interface TooltipState {
   x: number;
   y: number;
   word: string;
-  score: number;
   duration: number;
 }
 
 interface UseAudioPlaybackOptions {
   audioBlob: Blob | undefined;
-  words: TranscriptionWord[];
+  words?: TranscriptionWord[];
   onTooltipChange?: (tooltip: TooltipState) => void;
 }
 
@@ -43,7 +42,7 @@ const formatTime = (seconds: number): string => {
 
 export function useAudioPlayback({ 
   audioBlob, 
-  words, 
+  words = [],
   onTooltipChange 
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,28 +125,21 @@ export function useAudioPlayback({
       }
     });
 
-    // Initialize Regions
+    // Initialize Regions for word boundaries
     const regionsPlugin = RegionsPlugin.create();
     wavesurfer.current.registerPlugin(regionsPlugin);
     regions.current = regionsPlugin;
 
-    // Render Regions on ready
+    // Render word regions on ready
     wavesurfer.current.on('ready', () => {
       setIsLoading(false);
       regionsPlugin.clearRegions();
       wordRegions.current.clear();
 
       words.forEach((word, index) => {
-        let color = 'rgba(34, 197, 94, 0.15)';
-        let borderColor = 'rgba(34, 197, 94, 0.6)';
-        
-        if (word.score < 0.90) {
-          color = 'rgba(239, 68, 68, 0.25)';
-          borderColor = 'rgba(239, 68, 68, 0.8)';
-        } else if (word.score < 0.98) {
-          color = 'rgba(245, 158, 11, 0.2)';
-          borderColor = 'rgba(245, 158, 11, 0.7)';
-        }
+        // Neutral color for all words
+        const color = 'rgba(139, 92, 246, 0.15)';
+        const borderColor = 'rgba(139, 92, 246, 0.4)';
 
         const region = regionsPlugin.addRegion({
           start: word.start,
@@ -160,17 +152,16 @@ export function useAudioPlayback({
         wordRegions.current.set(index, region);
 
         if (region.element) {
-          region.element.style.borderBottom = `3px solid ${borderColor}`;
+          region.element.style.borderBottom = `2px solid ${borderColor}`;
           region.element.style.transition = 'all 0.2s ease';
-          region.element.style.pointerEvents = 'none';
           
+          // Tooltip on hover
           region.element.addEventListener('mouseenter', (e: MouseEvent) => {
             onTooltipChange?.({
               visible: true,
               x: e.clientX,
               y: e.clientY,
               word: word.word,
-              score: word.score,
               duration: word.end - word.start
             });
           });
@@ -181,20 +172,20 @@ export function useAudioPlayback({
               x: e.clientX,
               y: e.clientY,
               word: word.word,
-              score: word.score,
               duration: word.end - word.start
             });
           });
           
           region.element.addEventListener('mouseleave', () => {
             onTooltipChange?.({
-              visible: false, x: 0, y: 0, word: '', score: 0, duration: 0
+              visible: false, x: 0, y: 0, word: '', duration: 0
             });
           });
         }
       });
     });
     
+    // Click region to play from that word
     regionsPlugin.on('region-clicked', (region: any, e: any) => {
       e.stopPropagation();
       region.play();

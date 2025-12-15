@@ -90,12 +90,12 @@ export class LocalTranscriber implements ITranscriber {
     
     try {
       const output = await this.model(url, { 
-        return_timestamps: true,
-        chunk_length_s: 30,       // Process audio in 30-second chunks
-        stride_length_s: 5,       // 5-second overlap between chunks for continuity
-        no_speech_threshold: 0.1, // Low threshold to catch accented speech
-        language: 'en',           // Force English for multilingual model
-        task: 'transcribe'        // Explicitly set task
+        return_timestamps: 'word',    // Word-level timestamps for accurate word count
+        chunk_length_s: 30,           // Process audio in 30-second chunks
+        stride_length_s: 5,           // 5-second overlap between chunks for continuity
+        no_speech_threshold: 0.1,     // Low threshold to catch accented speech
+        language: 'en',               // Force English for multilingual model
+        task: 'transcribe'            // Explicitly set task
       });
       URL.revokeObjectURL(url);
       

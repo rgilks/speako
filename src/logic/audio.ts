@@ -24,7 +24,7 @@ export class AudioRecorder {
       const audioConstraints: MediaTrackConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true
+        autoGainControl: false  // Disabled: AGC reduces sensitivity over time, making meter less responsive
       };
       
       // If specific device requested, add deviceId constraint

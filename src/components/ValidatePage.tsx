@@ -111,7 +111,7 @@ export function ValidatePage() {
           }));
 
           const metrics = await computeMetricsWithML(hypothesis);
-          const grammarAnalysis = GrammarChecker.analyze(hypothesis);
+          const grammarAnalysis = GrammarChecker.check(hypothesis);
           
           const wer = calculateWER(ref.transcript, hypothesis);
           const detectedCEFR = metrics.cefr_level;

@@ -43,7 +43,7 @@ export function SessionResults({
       {transcript.value?.audioBlob && (
         <AudioVisualizer 
           audioBlob={transcript.value.audioBlob} 
-          words={transcript.value.words} 
+          words={transcript.value.words}
         />
       )}
 
