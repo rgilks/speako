@@ -17,7 +17,7 @@
     "cefr:install": "mkdir -p public/models/cefr-classifier && cp cefr-minilm-onnx/* public/models/cefr-classifier/ && cp public/models/cefr-classifier/model_quantized.onnx public/models/cefr-classifier/model.onnx && echo '✅ CEFR model installed to public/models/cefr-classifier'",
     "cefr:verify": "npx tsx scripts/verify-cefr.ts",
     "deps:update": "npx npm-check-updates -u",
-    "deploy": "npm run build && npx wrangler pages deploy dist"
+    "deploy": "npm run build && rm -rf dist/models && npx wrangler pages deploy dist"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
