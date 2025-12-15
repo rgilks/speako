@@ -2,7 +2,6 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [
@@ -73,9 +72,12 @@ export default defineConfig({
       allow: ['..', './test-data', '/Users/robertgilks/Desktop/sandi-corpus-2025'],
     },
   },
-  resolve: {
-    alias: {
-      '/test-data': resolve(__dirname, 'test-data'),
+  // Exclude test-data from production build
+  publicDir: 'public',
+  build: {
+    copyPublicDir: true,
+    rollupOptions: {
+      external: [/test-data/],
     },
   },
   test: {

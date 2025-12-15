@@ -1,0 +1,3 @@
+# Don't deploy test data to Cloudflare Pages
+test-data/
+*.zip
