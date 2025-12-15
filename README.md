@@ -146,11 +146,8 @@ Results are saved to `validation-results.json`.
 
 For information on training the CEFR classifier, see [ml/README.md](ml/README.md).
 
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `WI_CORPUS_PATH` | (Optional) Path to Write & Improve Corpus TSV for CEFR training |
+> [!NOTE]
+> The CEFR model is trained on [UniversalCEFR](https://huggingface.co/datasets/lksenel/UniversalCEFR) (CC-BY-NC-4.0) to ensure license compliance. The S&I Corpus is used for validation only.
 
 ## Developer Guide
 

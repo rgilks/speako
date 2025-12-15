@@ -120,7 +120,15 @@ def chunk_text(text: str, min_words: int = 5, max_words: int = 50) -> List[str]:
 
 
 def parse_wi_corpus(tsv_path: str) -> List[Dict[str, Any]]:
-    """Parse Write & Improve Corpus TSV and chunk essays."""
+    """
+    DEPRECATED: Parse Write & Improve Corpus TSV.
+    
+    This function is deprecated due to licensing restrictions. The W&I corpus
+    license prohibits releasing models derived from the data. Use 
+    load_universal_cefr() for training instead.
+    
+    This function may still be used for local evaluation/research purposes.
+    """
     if not os.path.exists(tsv_path):
         print(f"⚠️ W&I corpus file not found: {tsv_path}")
         return []
@@ -156,3 +164,139 @@ def parse_wi_corpus(tsv_path: str) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"   ⚠️ Error parsing W&I corpus: {e}")
         return []
+
+
+def load_universal_cefr(
+    max_samples: Optional[int] = None,
+    min_words: int = 5,
+    max_words: int = 50
+) -> List[Dict[str, Any]]:
+    """
+    Load CEFR-labeled data from HuggingFace for classifier training.
+    
+    Tries multiple open-licensed datasets in order of preference:
+    1. UniversalCEFR (CC-BY-NC-4.0) - 500k+ texts, 13 languages
+    2. edesaras/CEFR-Sentence-Level-Annotations - 10k+ English sentences
+    
+    Args:
+        max_samples: Maximum samples to return (None for all)
+        min_words: Minimum words per chunk
+        max_words: Maximum words per chunk (longer texts are split)
+        
+    Returns:
+        List of dicts with 'text', 'label', and 'source' keys
+    """
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        print("⚠️ datasets library not installed. Run: pip install datasets")
+        return []
+    
+    # Dataset configurations to try in order
+    DATASET_CONFIGS = [
+        {
+            "name": "lksenel/UniversalCEFR",
+            "text_field": "text",
+            "level_field": "cefr_level",
+            "level_is_numeric": False,  # String like "A1", "B2"
+            "lang_field": "lang",
+            "lang_filter": "en",
+            "source_field": "source_name",
+        },
+        {
+            "name": "edesaras/CEFR-Sentence-Level-Annotations",
+            "text_field": "text",
+            "level_field": "Annotator I",  # Integer 0-5 = A1-C2
+            "level_is_numeric": True,
+            "lang_field": None,  # English only
+            "lang_filter": None,
+            "source_field": None,
+        },
+    ]
+    
+    for config in DATASET_CONFIGS:
+        dataset_name = config["name"]
+        print(f"📦 Trying to load {dataset_name}...")
+        
+        try:
+            dataset = load_dataset(dataset_name, split="train", trust_remote_code=True)
+            entries = []
+            skipped_levels = 0
+            
+            for item in dataset:
+                # Language filter if applicable
+                if config["lang_field"] and config["lang_filter"]:
+                    lang = item.get(config["lang_field"], '').lower()
+                    if lang != config["lang_filter"]:
+                        continue
+                
+                # Get text
+                text = item.get(config["text_field"], '')
+                if not isinstance(text, str) or not text.strip():
+                    continue
+                
+                # Get CEFR level - handle both string and numeric formats
+                raw_level = item.get(config["level_field"], '')
+                
+                if config.get("level_is_numeric", False):
+                    # Numeric format: 0=A1, 1=A2, 2=B1, 3=B2, 4=C1, 5=C2
+                    try:
+                        level_int = int(raw_level)
+                        if 0 <= level_int <= 5:
+                            label_id = level_int
+                        else:
+                            skipped_levels += 1
+                            continue
+                    except (ValueError, TypeError):
+                        skipped_levels += 1
+                        continue
+                else:
+                    # String format: "A1", "B2+", etc.
+                    base_level = str(raw_level).strip().upper().replace('+', '').replace('-', '')
+                    if base_level not in LABEL2ID:
+                        skipped_levels += 1
+                        continue
+                    label_id = LABEL2ID[base_level]
+                source = config["source_field"]
+                source_name = item.get(source, dataset_name.split('/')[-1]) if source else dataset_name.split('/')[-1]
+                
+                # Chunk long texts to match speech transcript lengths
+                word_count = len(text.split())
+                
+                if word_count > max_words:
+                    chunks = chunk_text(text, min_words=min_words, max_words=max_words)
+                    for chunk in chunks:
+                        entries.append({
+                            'text': chunk,
+                            'label': label_id,
+                            'source': f'cefr_{source_name}'
+                        })
+                elif word_count >= min_words:
+                    entries.append({
+                        'text': text,
+                        'label': label_id,
+                        'source': f'cefr_{source_name}'
+                    })
+            
+            if skipped_levels > 0:
+                print(f"   ⚠️ Skipped {skipped_levels} entries with invalid CEFR levels")
+            
+            if not entries:
+                print(f"   ⚠️ No valid entries found in {dataset_name}, trying next...")
+                continue
+            
+            # Shuffle and limit
+            random.shuffle(entries)
+            if max_samples and len(entries) > max_samples:
+                entries = entries[:max_samples]
+            
+            print(f"   ✅ Loaded {len(entries)} CEFR-labeled entries from {dataset_name}")
+            return entries
+            
+        except Exception as e:
+            print(f"   ⚠️ Failed to load {dataset_name}: {e}")
+            continue
+    
+    print("❌ All dataset sources failed!")
+    return []
+

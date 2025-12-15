@@ -40,17 +40,14 @@ volume = modal.Volume.from_name("cefr-models", create_if_missing=True)
 # CORE LOGIC
 # -----------------------------------------------------------------------------
 
-# Mount local data
+# Mount local data - STM files are used for VALIDATION ONLY (not training)
+# This is permitted under the S&I license for non-commercial research.
+# Training uses UniversalCEFR (CC-BY-NC-4.0) which allows derivative models.
 training_image = (
     image
     .add_local_dir("test-data/reference-materials/stms", remote_path="/stm-data")
     .add_local_file("ml/cefr_utils.py", remote_path="/root/cefr_utils.py") 
 )
-
-if wi_path := os.environ.get("WI_CORPUS_PATH"):
-    training_image = training_image.add_local_dir(wi_path, remote_path="/wi-data")
-else:
-    print("⚠️  WI_CORPUS_PATH not set. W&I data will not be available.")
 
 
 @app.function(
@@ -77,49 +74,35 @@ def train_deberta(
     )
     from datasets import Dataset, concatenate_datasets
     import evaluate
-    from cefr_utils import parse_stm_file, parse_wi_corpus, chunk_text, LABEL2ID, ID2LABEL, augment_text_with_noise
+    from cefr_utils import parse_stm_file, load_universal_cefr, LABEL2ID, ID2LABEL, augment_text_with_noise
     from sklearn.metrics import classification_report
     
     MODEL_NAME = "microsoft/deberta-v3-small"
     OUTPUT_DIR = "/models/cefr-deberta-v3-small"
     
     print(f"🚀 Starting DeBERTa training: {MODEL_NAME}")
+    print("📋 License Compliance: Training on UniversalCEFR (CC-BY-NC-4.0)")
+    print("   S&I Corpus used for VALIDATION ONLY (research use permitted)")
     
     # 1. Load Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     
-    # 2. Load Data
-    all_entries = []
+    # 2. Load Training Data - UniversalCEFR (CC-BY-NC-4.0 allows derivative models)
+    print("📦 Loading UniversalCEFR training data...")
+    train_entries = load_universal_cefr(max_samples=max_samples)
     
-    # Load STM (Real Speech) - High Value
-    print("📦 Loading STM data...")
-    for fname in ["train-asr.stm", "dev-asr.stm"]:
-        path = f"/stm-data/{fname}"
-        if os.path.exists(path):
-            with open(path) as f:
-                entries = parse_stm_file(f.read())
-                # Oversample STM data 3x because it's the target domain
-                all_entries.extend(entries * 3) 
+    if not train_entries:
+        raise RuntimeError("Failed to load UniversalCEFR dataset!")
     
-    # Load W&I (Written) - Volume
-    print("📦 Loading WI Corpus...")
-    wi_entries = parse_wi_corpus("/wi-data/en-writeandimprove2024-corpus.tsv")
-    if max_samples:
-        wi_entries = wi_entries[:max_samples]
-    all_entries.extend(wi_entries)
+    print(f"📊 Total Training Samples: {len(train_entries)}")
     
-    print(f"📊 Total Training Samples: {len(all_entries)}")
+    # 3. Create Dataset with Noise Augmentation
+    # Simulates ASR transcription errors to improve robustness
     
-    # 3. Create Dataset with On-the-fly Augmentation
-    # We apply augmentation BEFORE tokenization for simplicity in this script
-    # Ideally this would be a custom Transform, but mapping is easier here.
+    texts = [e['text'] for e in train_entries]
+    labels = [e['label'] for e in train_entries]
     
-    texts = [e['text'] for e in all_entries]
-    labels = [e['label'] for e in all_entries]
-    
-    # Apply Augmentation to W&I data primarily (since it's too clean)
-    # STM data is already noisy, but we can add a bit more.
-    print("running augmentation...")
+    print("🔀 Running noise augmentation...")
     augmented_texts = [augment_text_with_noise(t) for t in texts]
     
     dataset = Dataset.from_dict({'text': augmented_texts, 'label': labels})
@@ -207,9 +190,11 @@ def train_deberta(
     volume.commit()
     print("✅ Model saved to volume.")
 
-    # 10. Eval on separate STM Test Set (The Real Test)
+    # 10. Eval on S&I STM Test Set (VALIDATION ONLY - research use permitted)
+    # NOTE: This data is NOT used for training, only evaluation.
+    # The license permits non-commercial research use of the corpus.
     try:
-        print("\n🧐 Evaluating on STM Test Set (Real World Data)...")
+        print("\n🧐 Evaluating on S&I STM Test Set (Validation Only)...")
         stm_test_path = "/stm-data/eval-asr.stm"
         if os.path.exists(stm_test_path):
             with open(stm_test_path) as f:

@@ -43,34 +43,44 @@ The model uses DeBERTa-v3-small as the base encoder with a 6-class classificatio
 
 ## Training Data
 
-### Primary: Speak & Improve Corpus 2025
+### License Compliance
 
-Uses STM (Speech Transcription Markup) files from `test-data/reference-materials/stms/`:
+> [!IMPORTANT]
+> The training uses only openly-licensed data to ensure the published model complies with all licenses.
+
+| Data Source | License | Usage |
+|-------------|---------|-------|
+| [UniversalCEFR](https://huggingface.co/datasets/lksenel/UniversalCEFR) | CC-BY-NC-4.0 | **Training** |
+| [S&I Corpus 2025](https://www.englishlanguageitutoring.com/datasets/speak-and-improve-corpus-2025) | Restrictive | Validation only |
+
+The CC-BY-NC-4.0 license explicitly allows creating derivative models for non-commercial use.
+
+---
+
+### Training: UniversalCEFR
+
+[UniversalCEFR](https://huggingface.co/datasets/lksenel/UniversalCEFR) is a large-scale multilingual dataset with 500k+ CEFR-labeled texts.
+
+- **Paper**: [arXiv:2404.00813](https://arxiv.org/abs/2404.00813)
+- **License**: CC-BY-NC-4.0 (allows derivative models)
+- **Languages**: 13 (filtered to English only)
+- **Levels**: A1–C2
+
+> [!TIP]
+> Long texts are automatically chunked (5-50 words) to match speech transcript lengths and prevent the model from learning "long text = high CEFR".
+
+---
+
+### Validation: Speak & Improve Corpus 2025
+
+The [S&I Corpus](https://www.englishlanguageitutoring.com/datasets/speak-and-improve-corpus-2025) is used **only for evaluation**, not training.
 
 | File | Purpose | Samples |
 |------|---------|---------|
-| `train-asr.stm` | Training | ~11,700 |
-| `dev-asr.stm` | Validation | ~9,200 |
 | `eval-asr.stm` | Held-out test | ~9,200 |
 
-> [!NOTE]
-> STM data is oversampled 3x during training since it represents the target domain (spoken English).
-
-### Optional: Write & Improve Corpus 2024
-
-The [Cambridge Write & Improve Corpus](https://www.englishlanguageitutoring.com/datasets/write-and-improve-corpus-2024) can be added for additional training volume.
-
-To include this corpus:
-
-1. Set the `WI_CORPUS_PATH` environment variable to the directory containing `en-writeandimprove2024-corpus.tsv`
-2. Run the training script
-
-```bash
-WI_CORPUS_PATH=/path/to/wi-corpus modal run ml/train_cefr_deberta.py
-```
-
-> [!TIP]
-> Written essays are automatically chunked (5-50 words) to match speech transcript lengths and prevent the model from learning "long text = high CEFR".
+> [!CAUTION]
+> The S&I license prohibits releasing models **derived from** the corpus. Since validation data doesn't influence model weights, using it for evaluation is permitted under the non-commercial research clause.
 
 ## Data Augmentation
 
@@ -135,12 +145,8 @@ CEFR Classifier loaded successfully with WEBGPU!
 # Check logs
 modal app logs cefr-deberta-training
 
-# Verify data files exist
+# Verify S&I validation data exists (optional)
 ls test-data/reference-materials/stms/
-
-# If using W&I corpus
-echo $WI_CORPUS_PATH
-ls $WI_CORPUS_PATH/en-writeandimprove2024-corpus.tsv
 ```
 
 ### Common errors
@@ -148,13 +154,14 @@ ls $WI_CORPUS_PATH/en-writeandimprove2024-corpus.tsv
 | Error | Solution |
 |-------|----------|
 | `ModuleNotFoundError: cefr_utils` | Ensure `ml/cefr_utils.py` exists |
-| `STM file not found` | Symlink `test-data` to corpus directory |
+| `STM file not found` | Symlink `test-data` to S&I corpus directory (optional for validation) |
 | `CUDA out of memory` | Reduce `batch_size` parameter |
-| `WI corpus not found` | Set `WI_CORPUS_PATH` env var or training continues without it |
+| `Failed to load UniversalCEFR` | Check internet connection (dataset downloads from HuggingFace) |
 
 ## References
 
 - [DeBERTa Paper](https://arxiv.org/abs/2006.03654) – Decoding-enhanced BERT with Disentangled Attention
 - [Modal Documentation](https://modal.com/docs) – Serverless GPU compute
 - [CEFR Framework](https://www.coe.int/en/web/common-european-framework-reference-languages) – Common European Framework of Reference
-- [Speak & Improve Corpus 2025](https://doi.org/10.17863/CAM.114333) – Training data source
+- [UniversalCEFR Dataset](https://huggingface.co/datasets/lksenel/UniversalCEFR) – Training data (CC-BY-NC-4.0)
+- [Speak & Improve Corpus 2025](https://doi.org/10.17863/CAM.114333) – Validation data
