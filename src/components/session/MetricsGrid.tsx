@@ -10,62 +10,87 @@ interface MetricsGridProps {
   clarityScore: number;
 }
 
+interface MetricCardProps {
+  value: string | number;
+  label: string;
+  className: string;
+  color: string;
+}
+
+function MetricCard({ value, label, className, color }: MetricCardProps) {
+  return (
+    <div className={`metric-card-premium ${className}`}>
+      <span className="value">{value}</span>
+      <span className="metric-label" style={{ color }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+interface SecondaryStatProps {
+  value: number;
+  label: string;
+}
+
+function SecondaryStat({ value, label }: SecondaryStatProps) {
+  return (
+    <div className="secondary-stat-item">
+      <span className="metric-subvalue">{value}</span>
+      <span style={{ display: 'block' }} className="metric-sublabel">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export function MetricsGrid({ metrics, clarityScore }: MetricsGridProps) {
+  const primaryMetrics = [
+    {
+      className: 'pronunciation',
+      value: `${metrics.pronunciation_score ?? 0}%`,
+      label: 'Pronunciation',
+      color: 'var(--accent-success)',
+    },
+    {
+      className: 'clarity',
+      value: clarityScore ?? 0,
+      label: 'Clarity Score',
+      color: '#f59e0b',
+    },
+    {
+      className: 'cefr',
+      value: metrics.cefr_level,
+      label: 'CEFR Level',
+      color: '#3b82f6',
+    },
+  ];
+
+  const secondaryMetrics = [
+    { value: metrics.word_count, label: 'Total Words' },
+    { value: metrics.wpm, label: 'WPM' },
+    { value: metrics.unique_words, label: 'Unique' },
+    { value: metrics.complex_words, label: 'Complex' },
+  ];
+
   return (
     <>
-      {/* Top Row: Primary Scores */}
       <div className="primary-metrics-grid">
-        {/* Pronunciation */}
-        <div className="metric-card-premium pronunciation">
-          <span className="value">{metrics.pronunciation_score ?? 0}%</span>
-          <span className="metric-label" style={{ color: 'var(--accent-success)' }}>
-            Pronunciation
-          </span>
-        </div>
-
-        {/* Clarity */}
-        <div className="metric-card-premium clarity">
-          <span className="value">{clarityScore ?? 0}</span>
-          <span className="metric-label" style={{ color: '#f59e0b' }}>
-            Clarity Score
-          </span>
-        </div>
-
-        {/* CEFR */}
-        <div className="metric-card-premium cefr">
-          <span className="value">{metrics.cefr_level}</span>
-          <span className="metric-label" style={{ color: '#3b82f6' }}>
-            CEFR Level
-          </span>
-        </div>
+        {primaryMetrics.map((metric) => (
+          <MetricCard
+            key={metric.label}
+            className={metric.className}
+            value={metric.value}
+            label={metric.label}
+            color={metric.color}
+          />
+        ))}
       </div>
 
-      {/* Secondary Stats */}
       <div className="secondary-metrics-grid">
-        <div className="secondary-stat-item">
-          <span className="metric-subvalue">{metrics.word_count}</span>
-          <span style={{ display: 'block' }} className="metric-sublabel">
-            Total Words
-          </span>
-        </div>
-        <div className="secondary-stat-item">
-          <span className="metric-subvalue">{metrics.wpm}</span>
-          <span style={{ display: 'block' }} className="metric-sublabel">
-            WPM
-          </span>
-        </div>
-        <div className="secondary-stat-item">
-          <span className="metric-subvalue">{metrics.unique_words}</span>
-          <span style={{ display: 'block' }} className="metric-sublabel">
-            Unique
-          </span>
-        </div>
-        <div className="secondary-stat-item">
-          <span className="metric-subvalue">{metrics.complex_words}</span>
-          <span style={{ display: 'block' }} className="metric-sublabel">
-            Complex
-          </span>
-        </div>
+        {secondaryMetrics.map((stat) => (
+          <SecondaryStat key={stat.label} value={stat.value} label={stat.label} />
+        ))}
       </div>
     </>
   );

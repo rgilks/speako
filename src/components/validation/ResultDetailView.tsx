@@ -39,10 +39,8 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
         </button>
       </div>
 
-      {/* Audio Visualizer */}
       {result.audioBlob && <AudioVisualizer audioBlob={result.audioBlob} words={result.words} />}
 
-      {/* Metrics Grid */}
       {result.fullMetrics && (
         <MetricsGrid
           metrics={{
@@ -54,7 +52,6 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
         />
       )}
 
-      {/* Reference vs Hypothesis Comparison */}
       <div
         style={{
           marginTop: '1.5rem',
@@ -77,7 +74,6 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
         </div>
       </div>
 
-      {/* Teacher Report */}
       {result.grammarAnalysis && (
         <div style={{ marginTop: '1.5rem' }}>
           <TeacherReport
@@ -87,7 +83,6 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
         </div>
       )}
 
-      {/* WER Details */}
       <div
         style={{
           marginTop: '1.5rem',

@@ -40,7 +40,6 @@ export function TranscriptionDisplay({
         </>
       ) : (
         <div className="recording-panel">
-          {/* Speaking Topic */}
           <div
             style={{
               marginBottom: 'var(--spacing-lg)',
@@ -75,7 +74,6 @@ export function TranscriptionDisplay({
             </p>
           </div>
 
-          {/* Elapsed Timer */}
           <p className="elapsed-timer" style={{ textAlign: 'center' }}>
             {Math.floor(elapsedTime.value / 60)
               .toString()
@@ -83,10 +81,8 @@ export function TranscriptionDisplay({
             :{(elapsedTime.value % 60).toString().padStart(2, '0')}
           </p>
 
-          {/* Audio Level Indicator */}
           <AudioLevelIndicator getLevel={getAudioLevel} barCount={7} />
 
-          {/* Status */}
           <p
             className="text-muted"
             style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}
@@ -94,7 +90,6 @@ export function TranscriptionDisplay({
             {statusMsg.value}
           </p>
 
-          {/* Stop Button */}
           <div style={{ textAlign: 'center' }}>
             <button className="btn-stop" onClick={handleStop}>
               Stop Recording

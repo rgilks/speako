@@ -1,28 +1,13 @@
-import { useRef, useState, useEffect } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { TranscriptionWord } from '../../logic/transcriber';
 import { useAudioPlayback, TooltipState } from '../../hooks/useAudioPlayback';
+import { useAudioShortcuts } from '../../hooks/useAudioShortcuts';
 import { AudioControls } from './AudioControls';
+import { AudioVisualizerTooltip } from './AudioVisualizerTooltip';
 
 interface AudioVisualizerProps {
   audioBlob: Blob;
   words?: TranscriptionWord[];
-}
-
-function Tooltip({ tooltip }: { tooltip: TooltipState }) {
-  if (!tooltip.visible) return null;
-
-  return (
-    <div
-      className="av-tooltip"
-      style={{
-        left: `${tooltip.x + 12}px`,
-        top: `${tooltip.y - 40}px`,
-      }}
-    >
-      <div className="av-tooltip-word">{tooltip.word}</div>
-      <div className="av-tooltip-duration">{(tooltip.duration * 1000).toFixed(0)}ms</div>
-    </div>
-  );
 }
 
 function LoadingSkeleton() {
@@ -53,7 +38,6 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
     duration,
     currentTime,
     playbackRate,
-    currentWordIndex: _currentWordIndex,
     togglePlay,
     stopPlayback,
     changeSpeed,
@@ -65,45 +49,19 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
     onTooltipChange: setTooltip,
   });
 
-  // Keyboard controls
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!cardRef.current) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      switch (e.code) {
-        case 'Space':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          skipBackward();
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          skipForward();
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          if (playbackRate < 1.5) changeSpeed(Math.min(1.5, playbackRate + 0.25));
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          if (playbackRate > 0.5) changeSpeed(Math.max(0.5, playbackRate - 0.25));
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [playbackRate, togglePlay, skipForward, skipBackward, changeSpeed]);
+  useAudioShortcuts({
+    enable: !!cardRef.current,
+    togglePlay,
+    skipBackward,
+    skipForward,
+    changeSpeed,
+    playbackRate,
+  });
 
   return (
     <div className="av-card" ref={cardRef}>
-      <Tooltip tooltip={tooltip} />
+      <AudioVisualizerTooltip tooltip={tooltip} />
 
-      {/* Stats bar - word count only */}
       {words.length > 0 && (
         <div className="av-stats-bar">
           <div className="av-stat">
@@ -125,7 +83,6 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
         onChangeSpeed={changeSpeed}
       />
 
-      {/* Waveform Area */}
       {isLoading && <LoadingSkeleton />}
       <div
         ref={containerRef}
@@ -134,7 +91,6 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
         style={{ display: isLoading ? 'none' : 'block' }}
       />
 
-      {/* Footer: Keyboard Hints */}
       <div className="av-legend">
         <div className="av-keyboard-hints">
           <span className="av-kbd-hint">

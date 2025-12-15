@@ -91,7 +91,6 @@ export function MicLevelMeter({ deviceId }: MicLevelMeterProps) {
         <span className="mic-level-label">🔊 Mic Check</span>
       </div>
 
-      {/* Reusing the app's standard visualizer */}
       <AudioLevelIndicator getLevel={getLevel} barCount={10} />
 
       <p className="mic-level-hint">Speak normally to test</p>
