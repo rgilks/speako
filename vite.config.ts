@@ -69,7 +69,7 @@ export default defineConfig({
     host: true,
     allowedHosts: true,
     fs: {
-      allow: ['..', './test-data', '/Users/robertgilks/Desktop/sandi-corpus-2025'],
+      allow: ['..', './test-data'],
     },
   },
   // Exclude test-data from production build

@@ -9,6 +9,7 @@ Usage:
 import modal
 import random
 import numpy as np
+import os
 
 # Modal setup
 app = modal.App("cefr-deberta-training")
@@ -90,9 +91,14 @@ def augment_text_with_noise(text: str, noise_prob: float = 0.1) -> str:
 training_image = (
     image
     .add_local_dir("dist/test-data/reference-materials/stms", remote_path="/stm-data")
-    .add_local_dir("/Users/robertgilks/Desktop/write-and-improve-corpus-2024-v2/whole-corpus", remote_path="/wi-data")
     .add_local_file("ml/cefr_utils.py", remote_path="/root/cefr_utils.py") 
 )
+
+if wi_path := os.environ.get("WI_CORPUS_PATH"):
+    training_image = training_image.add_local_dir(wi_path, remote_path="/wi-data")
+else:
+    print("⚠️  WI_CORPUS_PATH not set. W&I data will not be available.")
+
 
 @app.function(
     image=training_image,

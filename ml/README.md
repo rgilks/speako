@@ -51,6 +51,13 @@ Uses local STM files from `dist/test-data/reference-materials/stms/`:
 | `dev-asr.stm` | Validation | ~9,200 |
 | `eval-asr.stm` | Held-out test | ~9,200 |
 
+### Write & Improve Corpus (Optional)
+
+To include the Cambridge Write & Improve Corpus in training:
+1. Set the `WI_CORPUS_PATH` environment variable to the directory containing `en-writeandimprove2024-corpus.tsv`.
+2. Ensure the path is accessible to the training context.
+
+
 ## Model Details
 
 | Property | Value |
@@ -81,3 +88,4 @@ The model is automatically loaded when users start recording or run validation:
 **Training fails?**
 - Check Modal logs: `modal app logs`
 - Verify STM files exist: `ls dist/test-data/reference-materials/stms/`
+- If using W&I corpus, verify `WI_CORPUS_PATH` is set and the file exists.
