@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'preact/hooks';
+import { useRef, useState, useCallback, useEffect, MutableRef } from 'preact/hooks';
 import { Ref } from 'preact';
 import WaveSurfer from 'wavesurfer.js';
 // @ts-expect-error - No types available for this plugin
@@ -34,11 +34,134 @@ interface UseAudioPlaybackReturn {
   skipBackward: () => void;
 }
 
-const formatTime = (seconds: number): string => {
+// Constants
+const SKIP_SECONDS = 5;
+const WAVEFORM_HEIGHT = 128;
+const WAVEFORM_COLORS = {
+  wave: 'rgba(99, 102, 241, 0.4)',
+  progress: 'rgba(139, 92, 246, 0.9)',
+  cursor: '#c7d2fe',
+  region: 'rgba(139, 92, 246, 0.15)',
+  regionBorder: 'rgba(139, 92, 246, 0.4)',
+};
+const WAVEFORM_CONFIG = {
+  cursorWidth: 2,
+  barWidth: 3,
+  barGap: 2,
+  barRadius: 3,
+  minPxPerSec: 50,
+};
+
+function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
+}
+
+function createWaveSurferConfig(container: HTMLDivElement, audioUrl: string) {
+  return {
+    container,
+    waveColor: WAVEFORM_COLORS.wave,
+    progressColor: WAVEFORM_COLORS.progress,
+    cursorColor: WAVEFORM_COLORS.cursor,
+    cursorWidth: WAVEFORM_CONFIG.cursorWidth,
+    barWidth: WAVEFORM_CONFIG.barWidth,
+    barGap: WAVEFORM_CONFIG.barGap,
+    barRadius: WAVEFORM_CONFIG.barRadius,
+    height: WAVEFORM_HEIGHT,
+    url: audioUrl,
+    normalize: true,
+    minPxPerSec: WAVEFORM_CONFIG.minPxPerSec,
+    hideScrollbar: true,
+    autoScroll: true,
+    interact: true,
+  };
+}
+
+function setupWaveSurferEvents(
+  wavesurfer: WaveSurfer,
+  setIsPlaying: (playing: boolean) => void,
+  setDuration: (duration: string) => void,
+  setCurrentTime: (time: string) => void,
+  findCurrentWordIndex: (time: number) => number | null,
+  currentWordIndex: number | null,
+  updateActiveWord: (index: number | null) => void
+) {
+  wavesurfer.on('play', () => setIsPlaying(true));
+  wavesurfer.on('pause', () => setIsPlaying(false));
+  wavesurfer.on('finish', () => {
+    setIsPlaying(false);
+    updateActiveWord(null);
+  });
+  wavesurfer.on('decode', (d) => setDuration(formatTime(d)));
+
+  wavesurfer.on('timeupdate', (t) => {
+    setCurrentTime(formatTime(t));
+    const wordIdx = findCurrentWordIndex(t);
+    if (wordIdx !== currentWordIndex) {
+      updateActiveWord(wordIdx);
+    }
+  });
+}
+
+function createTooltipHandlers(
+  word: TranscriptionWord,
+  onTooltipChange?: (tooltip: TooltipState) => void
+) {
+  const showTooltip = (e: MouseEvent) => {
+    onTooltipChange?.({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      word: word.word,
+      duration: word.end - word.start,
+    });
+  };
+
+  const hideTooltip = () => {
+    onTooltipChange?.({
+      visible: false,
+      x: 0,
+      y: 0,
+      word: '',
+      duration: 0,
+    });
+  };
+
+  return { showTooltip, hideTooltip };
+}
+
+function createWordRegions(
+  regionsPlugin: RegionsPlugin,
+  words: TranscriptionWord[],
+  wordRegions: MutableRef<Map<number, unknown>>,
+  onTooltipChange?: (tooltip: TooltipState) => void
+) {
+  regionsPlugin.clearRegions();
+  wordRegions.current.clear();
+
+  words.forEach((word, index) => {
+    const region = regionsPlugin.addRegion({
+      start: word.start,
+      end: word.end,
+      color: WAVEFORM_COLORS.region,
+      drag: false,
+      resize: false,
+    });
+
+    wordRegions.current.set(index, region);
+
+    if (region.element) {
+      region.element.style.borderBottom = `2px solid ${WAVEFORM_COLORS.regionBorder}`;
+      region.element.style.transition = 'all 0.2s ease';
+
+      const { showTooltip, hideTooltip } = createTooltipHandlers(word, onTooltipChange);
+      region.element.addEventListener('mouseenter', showTooltip);
+      region.element.addEventListener('mousemove', showTooltip);
+      region.element.addEventListener('mouseleave', hideTooltip);
+    }
+  });
+}
 
 export function useAudioPlayback({
   audioBlob,
@@ -48,7 +171,7 @@ export function useAudioPlayback({
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
   const regions = useRef<RegionsPlugin | null>(null);
-  const wordRegions = useRef<Map<number, any>>(new Map());
+  const wordRegions = useRef<Map<number, unknown>>(new Map());
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,15 +196,17 @@ export function useAudioPlayback({
   // Highlight active word
   const updateActiveWord = useCallback((index: number | null) => {
     wordRegions.current.forEach((region) => {
-      if (region.element) {
-        region.element.classList.remove('av-word-active');
+      const regionWithElement = region as { element?: HTMLElement };
+      if (regionWithElement.element) {
+        regionWithElement.element.classList.remove('av-word-active');
       }
     });
 
     if (index !== null) {
       const region = wordRegions.current.get(index);
-      if (region?.element) {
-        region.element.classList.add('av-word-active');
+      const regionWithElement = region as { element?: HTMLElement } | undefined;
+      if (regionWithElement?.element) {
+        regionWithElement.element.classList.add('av-word-active');
       }
     }
 
@@ -93,115 +218,40 @@ export function useAudioPlayback({
     if (!containerRef.current || !audioBlob) return;
 
     setIsLoading(true);
+    const audioUrl = URL.createObjectURL(audioBlob);
 
-    wavesurfer.current = WaveSurfer.create({
-      container: containerRef.current,
-      waveColor: 'rgba(99, 102, 241, 0.4)',
-      progressColor: 'rgba(139, 92, 246, 0.9)',
-      cursorColor: '#c7d2fe',
-      cursorWidth: 2,
-      barWidth: 3,
-      barGap: 2,
-      barRadius: 3,
-      height: 128,
-      url: URL.createObjectURL(audioBlob),
-      normalize: true,
-      minPxPerSec: 50,
-      hideScrollbar: true,
-      autoScroll: true,
-      interact: true,
-    });
+    wavesurfer.current = WaveSurfer.create(createWaveSurferConfig(containerRef.current, audioUrl));
 
-    wavesurfer.current.on('play', () => setIsPlaying(true));
-    wavesurfer.current.on('pause', () => setIsPlaying(false));
-    wavesurfer.current.on('finish', () => {
-      setIsPlaying(false);
-      updateActiveWord(null);
-    });
-    wavesurfer.current.on('decode', (d) => setDuration(formatTime(d)));
+    setupWaveSurferEvents(
+      wavesurfer.current,
+      setIsPlaying,
+      setDuration,
+      setCurrentTime,
+      findCurrentWordIndex,
+      currentWordIndex,
+      updateActiveWord
+    );
 
-    wavesurfer.current.on('timeupdate', (t) => {
-      setCurrentTime(formatTime(t));
-      const wordIdx = findCurrentWordIndex(t);
-      if (wordIdx !== currentWordIndex) {
-        updateActiveWord(wordIdx);
-      }
-    });
-
-    // Initialize Regions for word boundaries
     const regionsPlugin = RegionsPlugin.create();
     wavesurfer.current.registerPlugin(regionsPlugin);
     regions.current = regionsPlugin;
 
-    // Render word regions on ready
     wavesurfer.current.on('ready', () => {
       setIsLoading(false);
-      regionsPlugin.clearRegions();
-      wordRegions.current.clear();
-
-      words.forEach((word, index) => {
-        // Neutral color for all words
-        const color = 'rgba(139, 92, 246, 0.15)';
-        const borderColor = 'rgba(139, 92, 246, 0.4)';
-
-        const region = regionsPlugin.addRegion({
-          start: word.start,
-          end: word.end,
-          color: color,
-          drag: false,
-          resize: false,
-        });
-
-        wordRegions.current.set(index, region);
-
-        if (region.element) {
-          region.element.style.borderBottom = `2px solid ${borderColor}`;
-          region.element.style.transition = 'all 0.2s ease';
-
-          // Tooltip on hover
-          region.element.addEventListener('mouseenter', (e: MouseEvent) => {
-            onTooltipChange?.({
-              visible: true,
-              x: e.clientX,
-              y: e.clientY,
-              word: word.word,
-              duration: word.end - word.start,
-            });
-          });
-
-          region.element.addEventListener('mousemove', (e: MouseEvent) => {
-            onTooltipChange?.({
-              visible: true,
-              x: e.clientX,
-              y: e.clientY,
-              word: word.word,
-              duration: word.end - word.start,
-            });
-          });
-
-          region.element.addEventListener('mouseleave', () => {
-            onTooltipChange?.({
-              visible: false,
-              x: 0,
-              y: 0,
-              word: '',
-              duration: 0,
-            });
-          });
-        }
-      });
+      createWordRegions(regionsPlugin, words, wordRegions, onTooltipChange);
     });
 
-    // Click region to play from that word
-    regionsPlugin.on('region-clicked', (region: any, e: any) => {
+    regionsPlugin.on('region-clicked', (region: unknown, e: Event) => {
       e.stopPropagation();
-      region.play();
+      const regionWithPlay = region as { play: () => void };
+      regionWithPlay.play();
     });
 
     return () => {
       wavesurfer.current?.destroy();
+      URL.revokeObjectURL(audioUrl);
     };
-  }, [audioBlob, words, onTooltipChange]);
+  }, [audioBlob, words, onTooltipChange, findCurrentWordIndex, currentWordIndex, updateActiveWord]);
 
   const togglePlay = useCallback(() => wavesurfer.current?.playPause(), []);
 
@@ -222,14 +272,14 @@ export function useAudioPlayback({
     if (wavesurfer.current) {
       const current = wavesurfer.current.getCurrentTime();
       const dur = wavesurfer.current.getDuration();
-      wavesurfer.current.setTime(Math.min(current + 5, dur));
+      wavesurfer.current.setTime(Math.min(current + SKIP_SECONDS, dur));
     }
   }, []);
 
   const skipBackward = useCallback(() => {
     if (wavesurfer.current) {
       const current = wavesurfer.current.getCurrentTime();
-      wavesurfer.current.setTime(Math.max(current - 5, 0));
+      wavesurfer.current.setTime(Math.max(current - SKIP_SECONDS, 0));
     }
   }, []);
 

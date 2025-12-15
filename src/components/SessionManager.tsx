@@ -1,3 +1,4 @@
+import { useCallback } from 'preact/hooks';
 import { useSessionManager } from '../hooks/useSessionManager';
 import { SessionControls } from './session/SessionControls';
 import { TranscriptionDisplay } from './session/TranscriptionDisplay';
@@ -23,41 +24,49 @@ export function SessionManager() {
     localTranscriber,
   } = useSessionManager();
 
-  return (
-    <div className="session-container animate-fade-in text-center">
-      {view.value === 'idle' && (
-        <SessionControls
-          modelLoadingState={modelLoadingState}
-          webGpuStatus={webGpuStatus}
-          selectedDeviceId={selectedDeviceId}
-          currentTopic={currentTopic}
-          generateTopic={generateTopic}
-          handleStart={handleStart}
-          statusMsg={statusMsg}
-        />
-      )}
+  const getAudioLevel = useCallback(() => {
+    return localTranscriber.getRecorder().getAudioLevel();
+  }, [localTranscriber]);
 
-      {(view.value === 'recording' || view.value === 'processing') && (
-        <TranscriptionDisplay
-          view={view}
-          statusMsg={statusMsg}
-          elapsedTime={elapsedTime}
-          currentTopic={currentTopic}
-          handleStop={handleStop}
-          getAudioLevel={() => localTranscriber.getRecorder().getAudioLevel()}
-        />
-      )}
+  const renderView = () => {
+    switch (view.value) {
+      case 'idle':
+        return (
+          <SessionControls
+            modelLoadingState={modelLoadingState}
+            webGpuStatus={webGpuStatus}
+            selectedDeviceId={selectedDeviceId}
+            currentTopic={currentTopic}
+            generateTopic={generateTopic}
+            handleStart={handleStart}
+            statusMsg={statusMsg}
+          />
+        );
+      case 'recording':
+      case 'processing':
+        return (
+          <TranscriptionDisplay
+            view={view}
+            statusMsg={statusMsg}
+            elapsedTime={elapsedTime}
+            currentTopic={currentTopic}
+            handleStop={handleStop}
+            getAudioLevel={getAudioLevel}
+          />
+        );
+      case 'results':
+        return (
+          <SessionResults
+            metrics={metrics}
+            analysis={analysis}
+            transcript={transcript}
+            lastDuration={lastDuration}
+            handleRetry={handleRetry}
+            statusMsg={statusMsg}
+          />
+        );
+    }
+  };
 
-      {view.value === 'results' && (
-        <SessionResults
-          metrics={metrics}
-          analysis={analysis}
-          transcript={transcript}
-          lastDuration={lastDuration}
-          handleRetry={handleRetry}
-          statusMsg={statusMsg}
-        />
-      )}
-    </div>
-  );
+  return <div className="session-container animate-fade-in text-center">{renderView()}</div>;
 }

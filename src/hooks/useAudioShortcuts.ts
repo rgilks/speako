@@ -1,5 +1,4 @@
 import { useEffect } from 'preact/hooks';
-import { RefObject } from 'preact';
 
 interface AudioShortcutsOptions {
   enable: boolean;
@@ -8,7 +7,36 @@ interface AudioShortcutsOptions {
   skipForward: () => void;
   changeSpeed: (speed: number) => void;
   playbackRate: number;
-  ignoreWhenFocused?: RefObject<HTMLElement>;
+}
+
+// Constants
+const KEY_CODES = {
+  SPACE: 'Space',
+  ARROW_LEFT: 'ArrowLeft',
+  ARROW_RIGHT: 'ArrowRight',
+  ARROW_UP: 'ArrowUp',
+  ARROW_DOWN: 'ArrowDown',
+} as const;
+
+const PLAYBACK_RATE = {
+  MIN: 0.5,
+  MAX: 1.5,
+  STEP: 0.25,
+} as const;
+
+function isInputElement(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
+
+function calculateSpeedChange(currentRate: number, direction: 'up' | 'down'): number {
+  if (direction === 'up') {
+    return currentRate < PLAYBACK_RATE.MAX
+      ? Math.min(PLAYBACK_RATE.MAX, currentRate + PLAYBACK_RATE.STEP)
+      : currentRate;
+  }
+  return currentRate > PLAYBACK_RATE.MIN
+    ? Math.max(PLAYBACK_RATE.MIN, currentRate - PLAYBACK_RATE.STEP)
+    : currentRate;
 }
 
 export function useAudioShortcuts({
@@ -23,29 +51,28 @@ export function useAudioShortcuts({
     if (!enable) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (isInputElement(e.target)) return;
 
       switch (e.code) {
-        case 'Space':
+        case KEY_CODES.SPACE:
           e.preventDefault();
           togglePlay();
           break;
-        case 'ArrowLeft':
+        case KEY_CODES.ARROW_LEFT:
           e.preventDefault();
           skipBackward();
           break;
-        case 'ArrowRight':
+        case KEY_CODES.ARROW_RIGHT:
           e.preventDefault();
           skipForward();
           break;
-        case 'ArrowUp':
+        case KEY_CODES.ARROW_UP:
           e.preventDefault();
-          if (playbackRate < 1.5) changeSpeed(Math.min(1.5, playbackRate + 0.25));
+          changeSpeed(calculateSpeedChange(playbackRate, 'up'));
           break;
-        case 'ArrowDown':
+        case KEY_CODES.ARROW_DOWN:
           e.preventDefault();
-          if (playbackRate > 0.5) changeSpeed(Math.max(0.5, playbackRate - 0.25));
+          changeSpeed(calculateSpeedChange(playbackRate, 'down'));
           break;
       }
     };

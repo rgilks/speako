@@ -1,17 +1,25 @@
 import { renderHook, act } from '@testing-library/preact';
 import { useSessionManager } from './useSessionManager';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Test data constants (defined after mocks to avoid hoisting issues)
+const MOCK_TRANSCRIPT = {
+  text: 'Hello world',
+  words: [],
+};
 
 // Mock dependencies
-// We don't mock LocalTranscriber class entirely because we want to inspect the instance
-// But we should mock dependencies that have side effects
 vi.mock('../logic/webgpu-check', () => ({
   checkWebGPU: vi.fn().mockResolvedValue({ isAvailable: true }),
 }));
 
 vi.mock('../logic/grammar-checker', () => ({
   GrammarChecker: {
-    check: vi.fn().mockReturnValue({ issues: [], clarityScore: 100, positivePoints: [] }),
+    check: vi.fn().mockReturnValue({
+      issues: [],
+      clarityScore: 100,
+      positivePoints: [],
+    }),
   },
 }));
 
@@ -41,9 +49,9 @@ vi.mock('../logic/cefr-classifier', () => ({
   estimateCEFRHeuristic: vi.fn().mockReturnValue({ level: 'B2', confidence: 0.5, allScores: [] }),
 }));
 
-// We need to mock the internal behavior of LocalTranscriber to prevent actual WebGPU/Audio usage
+// Mock LocalTranscriber to prevent actual WebGPU/Audio usage
 vi.mock('../logic/local-transcriber', async (importOriginal) => {
-  const actual: any = await importOriginal();
+  const actual = await importOriginal<typeof import('../logic/local-transcriber')>();
   return {
     ...actual,
     LocalTranscriber: class MockLocalTranscriber {
@@ -52,7 +60,9 @@ vi.mock('../logic/local-transcriber', async (importOriginal) => {
       async stop() {
         return { text: '', words: [] };
       }
-      getRecorder() {}
+      getRecorder() {
+        return { getAudioLevel: () => 0 };
+      }
     },
     subscribeToLoadingState: vi.fn(() => () => {}),
     ModelLoadingState: {},
@@ -60,8 +70,13 @@ vi.mock('../logic/local-transcriber', async (importOriginal) => {
 });
 
 describe('useSessionManager', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('initializes in idle state', () => {
     const { result } = renderHook(() => useSessionManager());
+
     expect(result.current.view.value).toBe('idle');
     expect(result.current.metrics.value).toBeNull();
     expect(result.current.transcript.value).toBeNull();
@@ -69,8 +84,6 @@ describe('useSessionManager', () => {
 
   it('transitions to recording state on handleStart', async () => {
     const { result } = renderHook(() => useSessionManager());
-
-    // Spy on the instance methods exposed by the hook
     const startSpy = vi
       .spyOn(result.current.localTranscriber, 'start')
       .mockResolvedValue(undefined);
@@ -86,39 +99,27 @@ describe('useSessionManager', () => {
 
   it('handleStop transitions to processing then results', async () => {
     const { result } = renderHook(() => useSessionManager());
-    const _startSpy = vi
-      .spyOn(result.current.localTranscriber, 'start')
-      .mockResolvedValue(undefined);
+    vi.spyOn(result.current.localTranscriber, 'start').mockResolvedValue(undefined);
     const stopSpy = vi
       .spyOn(result.current.localTranscriber, 'stop')
-      .mockResolvedValue({ text: 'Hello world', words: [] });
+      .mockResolvedValue(MOCK_TRANSCRIPT);
 
-    // Start first
     await act(async () => {
       await result.current.handleStart();
-    });
-
-    // Stop
-    await act(async () => {
       await result.current.handleStop();
     });
 
     expect(stopSpy).toHaveBeenCalled();
     expect(result.current.view.value).toBe('results');
-    expect(result.current.transcript.value?.text).toBe('Hello world');
+    expect(result.current.transcript.value?.text).toBe(MOCK_TRANSCRIPT.text);
     expect(result.current.metrics.value).not.toBeNull();
   });
 
   it('handleRetry resets state to idle', async () => {
     const { result } = renderHook(() => useSessionManager());
-    const _startSpy = vi
-      .spyOn(result.current.localTranscriber, 'start')
-      .mockResolvedValue(undefined);
-    const _stopSpy = vi
-      .spyOn(result.current.localTranscriber, 'stop')
-      .mockResolvedValue({ text: 'Hello world', words: [] });
+    vi.spyOn(result.current.localTranscriber, 'start').mockResolvedValue(undefined);
+    vi.spyOn(result.current.localTranscriber, 'stop').mockResolvedValue(MOCK_TRANSCRIPT);
 
-    // Move to results first
     await act(async () => {
       await result.current.handleStart();
       await result.current.handleStop();
@@ -126,7 +127,6 @@ describe('useSessionManager', () => {
 
     expect(result.current.view.value).toBe('results');
 
-    // Retry
     act(() => {
       result.current.handleRetry();
     });

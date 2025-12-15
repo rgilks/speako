@@ -6,6 +6,44 @@ interface UseMicrophoneAnalyserResult {
   getLevel: () => number;
 }
 
+// Constants
+const ANALYSER_CONFIG = {
+  fftSize: 512,
+  smoothingTimeConstant: 0.3,
+} as const;
+
+const AUDIO_CONSTRAINTS = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+} as const;
+
+function createAudioConstraints(deviceId: string): MediaStreamConstraints {
+  return {
+    audio: {
+      deviceId: { exact: deviceId },
+      ...AUDIO_CONSTRAINTS,
+    },
+  };
+}
+
+function configureAnalyser(analyser: AnalyserNode) {
+  analyser.fftSize = ANALYSER_CONFIG.fftSize;
+  analyser.smoothingTimeConstant = ANALYSER_CONFIG.smoothingTimeConstant;
+}
+
+function cleanupStream(stream: MediaStream | null) {
+  if (stream) {
+    stream.getTracks().forEach((track) => track.stop());
+  }
+}
+
+async function cleanupAudioContext(audioContext: AudioContext | null) {
+  if (audioContext) {
+    await audioContext.close();
+  }
+}
+
 /**
  * Hook to set up a microphone audio analyser.
  * Returns `isReady` state and a `getLevel` function for real-time audio level.
@@ -20,26 +58,14 @@ export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserRe
   useEffect(() => {
     if (!deviceId) return;
 
-    // Reset ready state when device changes
     setIsReady(false);
 
     async function setupAudio() {
       try {
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((t) => t.stop());
-        }
-        if (audioContextRef.current) {
-          await audioContextRef.current.close();
-        }
+        cleanupStream(streamRef.current);
+        await cleanupAudioContext(audioContextRef.current);
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            deviceId: { exact: deviceId },
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-          },
-        });
+        const stream = await navigator.mediaDevices.getUserMedia(createAudioConstraints(deviceId));
         streamRef.current = stream;
 
         const audioContext = new AudioContext();
@@ -47,8 +73,7 @@ export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserRe
         const source = audioContext.createMediaStreamSource(stream);
         const analyser = audioContext.createAnalyser();
 
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.3;
+        configureAnalyser(analyser);
         source.connect(analyser);
         analyserRef.current = analyser;
         dataArrayRef.current = new Uint8Array(analyser.fftSize);
@@ -62,12 +87,8 @@ export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserRe
     setupAudio();
 
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      cleanupStream(streamRef.current);
+      audioContextRef.current?.close();
     };
   }, [deviceId]);
 
