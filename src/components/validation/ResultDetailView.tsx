@@ -7,6 +7,76 @@ import { AudioVisualizer } from '../session/AudioVisualizer';
 import { MetricsGrid } from '../session/MetricsGrid';
 import { TeacherReport } from '../session/TeacherReport';
 
+function ComparisonView({ reference, hypothesis }: { reference: string; hypothesis: string }) {
+  return (
+    <div
+      style={{
+        marginTop: '1.5rem',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '1rem',
+      }}
+    >
+      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+        <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Reference (Expected)
+        </h4>
+        <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{reference}</p>
+      </div>
+      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+        <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Transcription (Detected)
+        </h4>
+        <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{hypothesis}</p>
+      </div>
+    </div>
+  );
+}
+
+function StatsSummary({ result }: { result: ValidationResult }) {
+  return (
+    <div
+      style={{
+        marginTop: '1.5rem',
+        padding: '1rem',
+        background: 'rgba(59, 130, 246, 0.1)',
+        borderRadius: '8px',
+      }}
+    >
+      <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', textAlign: 'center' }}>
+        <div>
+          <div
+            style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: result.wer < 0.2 ? '#4ade80' : result.wer < 0.4 ? '#fbbf24' : '#f87171',
+            }}
+          >
+            {(result.wer * 100).toFixed(1)}%
+          </div>
+          <small>Word Error Rate</small>
+        </div>
+        <div>
+          <div
+            style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: result.cefrMatch ? '#4ade80' : '#f87171',
+            }}
+          >
+            {result.detectedCEFR} / {result.labeledCEFR}
+          </div>
+          <small>Detected / Expected CEFR</small>
+        </div>
+        <div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{result.processingTimeMs}ms</div>
+          <small>Processing Time</small>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ResultDetailViewProps {
   result: ValidationResult;
   onClose: () => void;
@@ -52,27 +122,7 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
         />
       )}
 
-      <div
-        style={{
-          marginTop: '1.5rem',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '1rem',
-        }}
-      >
-        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-          <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            Reference (Expected)
-          </h4>
-          <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{result.reference}</p>
-        </div>
-        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-          <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            Transcription (Detected)
-          </h4>
-          <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{result.hypothesis}</p>
-        </div>
-      </div>
+      <ComparisonView reference={result.reference} hypothesis={result.hypothesis} />
 
       {result.grammarAnalysis && (
         <div style={{ marginTop: '1.5rem' }}>
@@ -83,49 +133,7 @@ export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
         </div>
       )}
 
-      <div
-        style={{
-          marginTop: '1.5rem',
-          padding: '1rem',
-          background: 'rgba(59, 130, 246, 0.1)',
-          borderRadius: '8px',
-        }}
-      >
-        <div
-          style={{ display: 'flex', gap: '2rem', justifyContent: 'center', textAlign: 'center' }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                color: result.wer < 0.2 ? '#4ade80' : result.wer < 0.4 ? '#fbbf24' : '#f87171',
-              }}
-            >
-              {(result.wer * 100).toFixed(1)}%
-            </div>
-            <small>Word Error Rate</small>
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                color: result.cefrMatch ? '#4ade80' : '#f87171',
-              }}
-            >
-              {result.detectedCEFR} / {result.labeledCEFR}
-            </div>
-            <small>Detected / Expected CEFR</small>
-          </div>
-          <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-              {result.processingTimeMs}ms
-            </div>
-            <small>Processing Time</small>
-          </div>
-        </div>
-      </div>
+      <StatsSummary result={result} />
     </div>
   );
 }

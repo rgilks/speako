@@ -10,6 +10,28 @@ interface ValidationControlsProps {
   onStartValidation: () => void;
 }
 
+function FileLimitInput({ limit, onChange }: { limit: number; onChange: (limit: number) => void }) {
+  return (
+    <label>
+      Files:
+      <input
+        type="number"
+        value={limit}
+        onChange={(e) => onChange(parseInt((e.target as HTMLInputElement).value) || 10)}
+        style={{
+          marginLeft: '0.5rem',
+          width: '60px',
+          padding: '6px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '4px',
+          color: 'inherit',
+        }}
+      />
+    </label>
+  );
+}
+
 export function ValidationControls({
   fileLimit,
   isRunning,
@@ -29,23 +51,7 @@ export function ValidationControls({
         alignItems: 'center',
       }}
     >
-      <label>
-        Files:
-        <input
-          type="number"
-          value={fileLimit}
-          onChange={(e) => onFileLimitChange(parseInt((e.target as HTMLInputElement).value) || 10)}
-          style={{
-            marginLeft: '0.5rem',
-            width: '60px',
-            padding: '6px',
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '4px',
-            color: 'inherit',
-          }}
-        />
-      </label>
+      <FileLimitInput limit={fileLimit} onChange={onFileLimitChange} />
       <button className="btn-primary" onClick={onStartValidation}>
         {isComplete ? 'Run Again' : 'Start Validation'}
       </button>
