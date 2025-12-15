@@ -85,6 +85,11 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
     return <p className="text-muted text-sm">No microphones found</p>;
   }
 
+  // Don't show dropdown if only one microphone available
+  if (devices.value.length === 1) {
+    return null;
+  }
+
   return (
     <div className="device-picker">
       <label className="device-picker-label">
