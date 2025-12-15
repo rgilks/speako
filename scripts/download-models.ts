@@ -32,12 +32,7 @@ const MODELS_DIR = path.join(PROJECT_ROOT, 'public/models');
 // - model.onnx (and potentially model.onnx_data / weights)
 // - generation_config.json
 
-const MODELS_TO_DOWNLOAD = [
-  'Xenova/whisper-tiny.en',
-  'Xenova/whisper-base.en',
-  // 'Xenova/whisper-small.en', // Uncomment if needed (large download)
-  // 'onnx-community/distil-small.en',
-];
+const MODELS_TO_DOWNLOAD = ['Xenova/whisper-base'];
 
 // Files to fetch for each model
 // Note: Whisper models in ONNX format are often split into encoder/decoder and may reside in 'onnx/' subfolder

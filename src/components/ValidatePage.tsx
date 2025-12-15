@@ -10,7 +10,7 @@ import { ModelSingleton } from '../logic/model-loader';
 import { computeMetricsWithML } from '../logic/metrics-calculator';
 import { GrammarChecker } from '../logic/grammar-checker';
 import { loadCEFRClassifier, isCEFRClassifierReady } from '../logic/cefr-classifier';
-import { ValidationResult, WHISPER_MODELS } from '../types/validation';
+import { ValidationResult, DEFAULT_WHISPER_MODEL } from '../types/validation';
 import { parseSTM, calculateWER, shuffleArray } from '../logic/validation-utils';
 import { SummaryCards } from './validation/SummaryCards';
 import { ResultsTable } from './validation/ResultsTable';
@@ -29,7 +29,7 @@ export function ValidatePage() {
   const isRunning = useSignal(false);
   const isComplete = useSignal(false);
   const fileLimit = useSignal(10);
-  const selectedModel = useSignal(WHISPER_MODELS[3].id);
+  const modelId = DEFAULT_WHISPER_MODEL;
 
   const avgWER = useSignal(0);
   const cefrAccuracy = useSignal(0);
@@ -41,8 +41,8 @@ export function ValidatePage() {
     results.value = [];
 
     try {
-      status.value = `Loading ${selectedModel.value}...`;
-      const model = await ModelSingleton.getInstance(selectedModel.value, (data: any) => {
+      status.value = `Loading ${modelId}...`;
+      const model = await ModelSingleton.getInstance(modelId, (data: any) => {
         if (data.status === 'progress' && data.progress) {
           status.value = `Loading Whisper... ${Math.round(data.progress)}%`;
         }
@@ -165,8 +165,7 @@ export function ValidatePage() {
 
   // Expose for E2E testing
   if (typeof window !== 'undefined') {
-    (window as any).startValidation = (modelId: string, limit: number) => {
-      selectedModel.value = modelId;
+    (window as any).startValidation = (limit: number) => {
       fileLimit.value = limit;
       runValidation();
     };
@@ -199,11 +198,9 @@ export function ValidatePage() {
         </p>
 
         <ValidationControls
-          selectedModel={selectedModel.value}
           fileLimit={fileLimit.value}
           isRunning={isRunning.value}
           isComplete={isComplete.value}
-          onModelChange={(id) => (selectedModel.value = id)}
           onFileLimitChange={(limit) => (fileLimit.value = limit)}
           onStartValidation={runValidation}
         />

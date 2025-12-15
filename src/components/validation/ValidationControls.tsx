@@ -2,24 +2,18 @@
  * Validation controls panel.
  */
 
-import { WHISPER_MODELS } from '../../types/validation';
-
 interface ValidationControlsProps {
-  selectedModel: string;
   fileLimit: number;
   isRunning: boolean;
   isComplete: boolean;
-  onModelChange: (modelId: string) => void;
   onFileLimitChange: (limit: number) => void;
   onStartValidation: () => void;
 }
 
 export function ValidationControls({
-  selectedModel,
   fileLimit,
   isRunning,
   isComplete,
-  onModelChange,
   onFileLimitChange,
   onStartValidation,
 }: ValidationControlsProps) {
@@ -35,27 +29,6 @@ export function ValidationControls({
         alignItems: 'center',
       }}
     >
-      <label>
-        Model:
-        <select
-          value={selectedModel}
-          onChange={(e) => onModelChange((e.target as HTMLSelectElement).value)}
-          style={{
-            marginLeft: '0.5rem',
-            padding: '6px',
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '4px',
-            color: 'inherit',
-          }}
-        >
-          {WHISPER_MODELS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      </label>
       <label>
         Files:
         <input
