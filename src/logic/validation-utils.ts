@@ -1,43 +1,54 @@
-/**
- * Validation utilities for parsing STM files and calculating WER.
- */
-
 import { STMEntry } from '../types/validation';
 
-/**
- * Normalize text for WER comparison.
- */
+const PUNCTUATION_PATTERN = /[.,!?;:'"()[\]{}]/g;
+const WHITESPACE_PATTERN = /\s+/g;
+const STM_COMMENT_PREFIX = ';;';
+const STM_LINE_PATTERN = /^(\S+)\s+\S+\s+\S+\s+[\d.]+\s+[\d.]+\s+<([^>]+)>\s+(.*)$/;
+const CEFR_PATTERN = /,([ABC][12]?),/;
+const UNKNOWN_CEFR = 'Unknown';
+const PERCENT_NOISE_PATTERN = /\(%[^)]+%\)/g;
+const DASH_NOISE_PATTERN = /\([^)]*-\)/g;
+
+function cleanTranscript(transcript: string): string {
+  return transcript
+    .replace(PERCENT_NOISE_PATTERN, '')
+    .replace(DASH_NOISE_PATTERN, '')
+    .replace(WHITESPACE_PATTERN, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function extractCEFR(metadata: string): string {
+  const match = metadata.match(CEFR_PATTERN);
+  return match ? match[1] : UNKNOWN_CEFR;
+}
+
+function splitWords(text: string): string[] {
+  return normalize(text)
+    .split(WHITESPACE_PATTERN)
+    .filter((w) => w);
+}
+
 export function normalize(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[.,!?;:'"()[\]{}]/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(PUNCTUATION_PATTERN, '')
+    .replace(WHITESPACE_PATTERN, ' ')
     .trim();
 }
 
-/**
- * Parse STM file content into a map of file IDs to entries.
- */
 export function parseSTM(content: string): Map<string, STMEntry> {
   const entries = new Map<string, STMEntry>();
   const segments: Map<string, { cefr: string; transcripts: string[] }> = new Map();
 
   for (const line of content.split('\n')) {
-    if (line.startsWith(';;') || !line.trim()) continue;
+    if (line.startsWith(STM_COMMENT_PREFIX) || !line.trim()) continue;
 
-    const match = line.match(/^(\S+)\s+\S+\s+\S+\s+[\d.]+\s+[\d.]+\s+<([^>]+)>\s+(.*)$/);
+    const match = line.match(STM_LINE_PATTERN);
     if (match) {
       const [, fileId, metadata, transcript] = match;
-      // Extract CEFR from metadata like "o,Q4,C,P1" where C = CEFR level
-      const cefrMatch = metadata.match(/,([ABC][12]?),/);
-      const labeledCEFR = cefrMatch ? cefrMatch[1] : 'Unknown';
-
-      const clean = transcript
-        .replace(/\(%[^)]+%\)/g, '')
-        .replace(/\([^)]*-\)/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
+      const labeledCEFR = extractCEFR(metadata);
+      const clean = cleanTranscript(transcript);
 
       if (!segments.has(fileId)) {
         segments.set(fileId, { cefr: labeledCEFR, transcripts: [] });
@@ -56,30 +67,23 @@ export function parseSTM(content: string): Map<string, STMEntry> {
   return entries;
 }
 
-/**
- * Calculate Word Error Rate between reference and hypothesis.
- */
 export function calculateWER(reference: string, hypothesis: string): number {
-  const refWords = normalize(reference)
-    .split(/\s+/)
-    .filter((w) => w);
-  const hypWords = normalize(hypothesis)
-    .split(/\s+/)
-    .filter((w) => w);
+  const refWords = splitWords(reference);
+  const hypWords = splitWords(hypothesis);
 
   if (refWords.length === 0) return hypWords.length === 0 ? 0 : 1;
 
-  const m = refWords.length;
-  const n = hypWords.length;
-  const dp: number[][] = Array(m + 1)
+  const refLength = refWords.length;
+  const hypLength = hypWords.length;
+  const dp: number[][] = Array(refLength + 1)
     .fill(null)
-    .map(() => Array(n + 1).fill(0));
+    .map(() => Array(hypLength + 1).fill(0));
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 0; i <= refLength; i++) dp[i][0] = i;
+  for (let j = 0; j <= hypLength; j++) dp[0][j] = j;
 
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
+  for (let i = 1; i <= refLength; i++) {
+    for (let j = 1; j <= hypLength; j++) {
       dp[i][j] =
         refWords[i - 1] === hypWords[j - 1]
           ? dp[i - 1][j - 1]
@@ -87,12 +91,9 @@ export function calculateWER(reference: string, hypothesis: string): number {
     }
   }
 
-  return dp[m][n] / m;
+  return dp[refLength][hypLength] / refLength;
 }
 
-/**
- * Shuffle array in place using Fisher-Yates algorithm.
- */
 export function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

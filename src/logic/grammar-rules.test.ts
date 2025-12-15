@@ -65,9 +65,6 @@ describe('Grammar Rules', () => {
 
       Rules.checkHedging(doc, issues, state);
 
-      // "I guess" and "maybe" might both trigger depending on overlapping matches,
-      // but compromise usually handles distinct matches.
-      // Let's check at least one.
       expect(issues.length).toBeGreaterThan(0);
       expect(issues[0].category).toBe('confidence');
     });
@@ -75,7 +72,6 @@ describe('Grammar Rules', () => {
 
   describe('checkPassiveVoice', () => {
     it('detects passive voice constructions', () => {
-      // "was made by"
       const doc = nlp('Mistakes were made by the developer.');
       const issues: Rules.GrammarIssue[] = [];
       const state: Rules.ClarityState = { deductions: 0 };
@@ -95,14 +91,7 @@ describe('Grammar Rules', () => {
 
       Rules.checkFillerWords(doc, issues, state);
 
-      // 3 fillers: like, um, kind of
-      // Deductions logic: count * 2?
       expect(state.deductions).toBeGreaterThan(0);
-
-      // It might also push a warning if density is high
-      // "It was like um kind of cool" -> ~7 words. 3 fillers. 3/7 > 0.05.
-      // Should prompt warning? But word count check says > 20 words.
-      // So no issue pushed, just deduction.
       expect(issues).toHaveLength(0);
     });
 
@@ -113,6 +102,7 @@ describe('Grammar Rules', () => {
       const state: Rules.ClarityState = { deductions: 0 };
 
       Rules.checkFillerWords(doc, issues, state);
+
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain('High usage of filler words');
     });
@@ -121,7 +111,7 @@ describe('Grammar Rules', () => {
   describe('calculateClarityScore', () => {
     it('returns 100 for short text (<10 words)', () => {
       const doc = nlp('Too short.');
-      const state: Rules.ClarityState = { deductions: 50 }; // massive deductions
+      const state: Rules.ClarityState = { deductions: 50 };
       const score = Rules.calculateClarityScore(doc, state);
       expect(score).toBe(100);
     });
@@ -129,9 +119,8 @@ describe('Grammar Rules', () => {
     it('calculates score based on deductions', () => {
       const doc = nlp('One two three four five six seven eight nine ten eleven.');
       const state: Rules.ClarityState = { deductions: 2 };
-      // 11 words. 2 defects. defectsPer100 = (2/11)*100 = 18.18
-      // Score = 100 - (18.18 * 3) = 100 - 54.5 = 45.5 -> 46
       const score = Rules.calculateClarityScore(doc, state);
+
       expect(score).toBeLessThan(100);
     });
   });

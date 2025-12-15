@@ -1,5 +1,11 @@
 import { COMMON_WORDS } from './common-words';
 import { GrammarChecker } from './grammar-checker';
+import {
+  isCEFRClassifierReady,
+  predictCEFR,
+  estimateCEFRHeuristic,
+  type CEFRPrediction,
+} from './cefr-classifier';
 
 export interface Metrics {
   word_count: number;
@@ -10,86 +16,85 @@ export interface Metrics {
   pronunciation_score?: number;
 }
 
-/**
- * Compute text metrics for CEFR level estimation.
- * Port of the Rust `compute_metrics` function from speako_core.
- */
+const MIN_WORD_LENGTH_FOR_COMPLEXITY = 9;
+const ACADEMIC_SUFFIX_PATTERN = /((tion)|(ment)|(ence)|(ance)|(ity)|(ive)|(ous)|(ism)|(ist))$/;
+const MIN_WORDS_FOR_CEFR = 10;
+const MAX_SENTENCE_LENGTH_SCORE = 12;
+const SENTENCE_SCORE_WEIGHT = 40;
+const VOCAB_SCORE_WEIGHT = 40;
+const MAX_COMPLEX_RATIO = 0.1;
+const GRAMMAR_SCORE_WEIGHT = 20;
+const PRONUNCIATION_SCALE = 100;
+
+const CEFR_THRESHOLDS = {
+  A1: 25,
+  A2: 40,
+  B1: 55,
+  B2: 70,
+  C1: 85,
+} as const;
+
+function calculatePronunciationScore(words?: { word: string; score: number }[]): number {
+  if (!words || words.length === 0) return 0;
+  const totalScore = words.reduce((acc, w) => acc + (w.score || 0), 0);
+  return Math.round((totalScore / words.length) * PRONUNCIATION_SCALE);
+}
+
+function isComplexWord(word: string): boolean {
+  const clean = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!clean) return false;
+
+  const isCommon = COMMON_WORDS.has(clean);
+  const isLong = clean.length > MIN_WORD_LENGTH_FOR_COMPLEXITY;
+  const hasAcademicSuffix = ACADEMIC_SUFFIX_PATTERN.test(clean);
+
+  return !isCommon && (isLong || hasAcademicSuffix);
+}
+
+function countComplexWords(textWords: string[]): number {
+  return textWords.filter(isComplexWord).length;
+}
+
+function calculateCEFRScore(
+  avgSentenceLen: number,
+  complexRatio: number,
+  clarityScore: number
+): number {
+  const sentScore =
+    (Math.min(avgSentenceLen, MAX_SENTENCE_LENGTH_SCORE) / MAX_SENTENCE_LENGTH_SCORE) *
+    SENTENCE_SCORE_WEIGHT;
+  const vocabScore =
+    (Math.min(complexRatio, MAX_COMPLEX_RATIO) / MAX_COMPLEX_RATIO) * VOCAB_SCORE_WEIGHT;
+  const grammarScore = (clarityScore / 100) * GRAMMAR_SCORE_WEIGHT;
+  return sentScore + vocabScore + grammarScore;
+}
+
+function determineCEFRLevel(wordCount: number, totalScore: number): string {
+  if (wordCount < MIN_WORDS_FOR_CEFR) return 'A1';
+  if (totalScore < CEFR_THRESHOLDS.A1) return 'A1';
+  if (totalScore < CEFR_THRESHOLDS.A2) return 'A2';
+  if (totalScore < CEFR_THRESHOLDS.B1) return 'B1';
+  if (totalScore < CEFR_THRESHOLDS.B2) return 'B2';
+  if (totalScore < CEFR_THRESHOLDS.C1) return 'C1';
+  return 'C2';
+}
+
 export function computeMetrics(text: string, words?: { word: string; score: number }[]): Metrics {
   const textWords = text.toLowerCase().match(/\b[a-z']+\b/g) || [];
   const word_count = textWords.length;
   const character_count = text.length;
-
   const unique_words = new Set(textWords).size;
+  const pronunciation_score = calculatePronunciationScore(words);
 
-  // Pronunciation Score (Avg Confidence * 100)
-  let pronunciation_score = 0;
-  if (words && words.length > 0) {
-    const totalScore = words.reduce((acc, w) => acc + (w.score || 0), 0);
-    pronunciation_score = Math.round((totalScore / words.length) * 100);
-  }
-
-  // Heuristic for CEFR (Improved for Spoken Language)
-  // Based on sentence length and vocabulary complexity
-
-  // 1. Average sentence length
   const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-  const validSentenceCount = sentences.length;
-  const avgSentenceLen = validSentenceCount > 0 ? word_count / validSentenceCount : 0;
+  const avgSentenceLen = sentences.length > 0 ? word_count / sentences.length : 0;
 
-  // 2. Percentage of complex words
-  // Use stricter criteria: word must be genuinely uncommon AND long
-  let complexCount = 0;
-  for (const word of textWords) {
-    const clean = word.toLowerCase().replace(/[^a-z]/g, '');
-    if (!clean) continue;
-
-    const isCommon = COMMON_WORDS.has(clean);
-    const isLong = clean.length > 9; // Raised from 7 - 9+ chars indicates real complexity
-    const hasAcademicSuffix = /((tion)|(ment)|(ence)|(ance)|(ity)|(ive)|(ous)|(ism)|(ist))$/.test(
-      clean
-    );
-
-    // Only count as complex if BOTH uncommon AND (long OR academic)
-    if (!isCommon && (isLong || hasAcademicSuffix)) {
-      complexCount++;
-    }
-  }
-
+  const complexCount = countComplexWords(textWords);
   const complexRatio = word_count > 0 ? complexCount / word_count : 0;
 
-  // Score calculation (0-100 scale roughly)
-  // Tuned for spoken language from non-native speakers:
-  // - Short sentences are normal in speech
-  // - Lower vocabulary complexity is expected
-
-  // Sentence length: avg of 12+ words = high complexity for spoken language
-  const sentScore = (Math.min(avgSentenceLen, 12) / 12) * 40; // Max 40 points
-  // Complex vocabulary: even 10% complex words is high for spoken language
-  const vocabScore = (Math.min(complexRatio, 0.1) / 0.1) * 40; // Max 40 points
-  let totalScore = sentScore + vocabScore;
-
-  // 3. Grammar Clarity Integration (max 20 points)
   const { clarityScore } = GrammarChecker.check(text);
-  totalScore += (clarityScore / 100) * 20; // Up to 20 bonus points for perfect clarity
-
-  // CEFR thresholds adjusted for spoken language
-  // Most non-native speakers in B1-B2 range will have scores 30-60
-  let cefrLevel: string;
-  if (word_count < 10) {
-    cefrLevel = 'A1'; // Too short to judge
-  } else if (totalScore < 25) {
-    cefrLevel = 'A1';
-  } else if (totalScore < 40) {
-    cefrLevel = 'A2';
-  } else if (totalScore < 55) {
-    cefrLevel = 'B1';
-  } else if (totalScore < 70) {
-    cefrLevel = 'B2';
-  } else if (totalScore < 85) {
-    cefrLevel = 'C1';
-  } else {
-    cefrLevel = 'C2';
-  }
+  const totalScore = calculateCEFRScore(avgSentenceLen, complexRatio, clarityScore);
+  const cefrLevel = determineCEFRLevel(word_count, totalScore);
 
   return {
     word_count,
@@ -101,58 +106,42 @@ export function computeMetrics(text: string, words?: { word: string; score: numb
   };
 }
 
-// ============================================================================
-// ML-BASED CEFR PREDICTION
-// ============================================================================
-
-import {
-  isCEFRClassifierReady,
-  predictCEFR,
-  estimateCEFRHeuristic,
-  type CEFRPrediction,
-} from './cefr-classifier';
-
 export interface MetricsWithConfidence extends Metrics {
   cefr_confidence?: number;
   cefr_method: 'ml' | 'heuristic';
 }
 
-/**
- * Compute metrics with ML-based CEFR prediction when classifier is available.
- * Falls back to heuristic when ML model isn't loaded.
- */
+async function getCEFRPrediction(
+  text: string
+): Promise<{ prediction: CEFRPrediction; method: 'ml' | 'heuristic' }> {
+  if (isCEFRClassifierReady()) {
+    try {
+      const prediction = await predictCEFR(text);
+      console.log(
+        `[MetricsCalculator] ML CEFR prediction: ${prediction.level} (${(prediction.confidence * 100).toFixed(1)}%)`
+      );
+      return { prediction, method: 'ml' };
+    } catch (error) {
+      console.warn('[MetricsCalculator] ML prediction failed, using heuristic:', error);
+      return { prediction: estimateCEFRHeuristic(text), method: 'heuristic' };
+    }
+  }
+  const prediction = estimateCEFRHeuristic(text);
+  console.log(`[MetricsCalculator] Using heuristic CEFR: ${prediction.level}`);
+  return { prediction, method: 'heuristic' };
+}
+
 export async function computeMetricsWithML(
   text: string,
   words?: { word: string; score: number }[]
 ): Promise<MetricsWithConfidence> {
-  // Get base metrics (word count, pronunciation, etc.)
   const baseMetrics = computeMetrics(text, words);
-
-  // Try ML-based CEFR prediction
-  let cefrPrediction: CEFRPrediction;
-  let method: 'ml' | 'heuristic' = 'heuristic';
-
-  if (isCEFRClassifierReady()) {
-    try {
-      cefrPrediction = await predictCEFR(text);
-      method = 'ml';
-      console.log(
-        `[MetricsCalculator] ML CEFR prediction: ${cefrPrediction.level} (${(cefrPrediction.confidence * 100).toFixed(1)}%)`
-      );
-    } catch (error) {
-      console.warn('[MetricsCalculator] ML prediction failed, using heuristic:', error);
-      cefrPrediction = estimateCEFRHeuristic(text);
-    }
-  } else {
-    // Use heuristic fallback
-    cefrPrediction = estimateCEFRHeuristic(text);
-    console.log(`[MetricsCalculator] Using heuristic CEFR: ${cefrPrediction.level}`);
-  }
+  const { prediction, method } = await getCEFRPrediction(text);
 
   return {
     ...baseMetrics,
-    cefr_level: cefrPrediction.level,
-    cefr_confidence: cefrPrediction.confidence,
+    cefr_level: prediction.level,
+    cefr_confidence: prediction.confidence,
     cefr_method: method,
   };
 }

@@ -1,7 +1,6 @@
 import { useRef, useState, useCallback, useEffect, MutableRef } from 'preact/hooks';
 import { Ref } from 'preact';
 import WaveSurfer from 'wavesurfer.js';
-// @ts-expect-error - No types available for this plugin
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { TranscriptionWord } from '../logic/transcriber';
 

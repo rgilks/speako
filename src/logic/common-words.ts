@@ -139,8 +139,6 @@ export const COMMON_WORDS = new Set([
   'excuse',
 
   // Numbers
-  'one',
-  'two',
   'three',
   'four',
   'five',
@@ -149,7 +147,6 @@ export const COMMON_WORDS = new Set([
   'eight',
   'nine',
   'ten',
-  'first',
   'second',
   'third',
   'last',
@@ -168,7 +165,6 @@ export const COMMON_WORDS = new Set([
   'february',
   'march',
   'april',
-  'may',
   'june',
   'july',
   'august',
@@ -200,7 +196,6 @@ export const COMMON_WORDS = new Set([
 
   // Location words
   'here',
-  'there',
   'everywhere',
   'nowhere',
   'somewhere',
@@ -210,8 +205,6 @@ export const COMMON_WORDS = new Set([
   'those',
 
   // Pronouns
-  'him',
-  'us',
   'mine',
   'yours',
   'hers',

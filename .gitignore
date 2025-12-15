@@ -1,21 +1,54 @@
-node_modules
-target
-dist
-.DS_Store
-test-data
+# Dependencies
+node_modules/
 
-# Validation output
+# Build outputs
+dist/
+target/
+
+# Test data and results
+test-data/
+test-results/
+e2e/results.json
 validation-results.json
 
-# Playwright
-playwright-report
-test-results
-e2e/results.json
-
-# Downloaded Models
+# Downloaded models
 public/models/
-test-data/
 cefr-minilm-onnx/
 
-ml/__pycache__/
+# Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 
+# Testing
+playwright-report/
+coverage/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local

@@ -1,42 +1,46 @@
-// WebGPU types extension
 interface NavigatorGPU {
   gpu: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requestAdapter: () => Promise<any>;
   };
 }
 
-/**
- * Check if running on iOS Safari where WebGPU is unstable for ML workloads.
- */
+const IOS_DEVICE_PATTERN = /iPad|iPhone|iPod/;
+const SAFARI_PATTERN = /Safari/;
+const NON_SAFARI_BROWSERS = /Chrome|CriOS|FxiOS/;
+const MACINTEL_PLATFORM = 'MacIntel';
+const MIN_TOUCH_POINTS = 1;
+
 function isIOSSafari(): boolean {
   const ua = navigator.userAgent;
   const isIOS =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
+    IOS_DEVICE_PATTERN.test(ua) ||
+    (navigator.platform === MACINTEL_PLATFORM && navigator.maxTouchPoints > MIN_TOUCH_POINTS);
+  const isSafari = SAFARI_PATTERN.test(ua) && !NON_SAFARI_BROWSERS.test(ua);
   return isIOS && isSafari;
 }
 
-/**
- * Check if WebGPU is available in the current browser.
- */
+const IOS_SAFARI_MESSAGE =
+  'Using WASM on iOS Safari for stability. WebGPU ML support is still experimental on this platform.';
+const UNSUPPORTED_BROWSER_MESSAGE =
+  'WebGPU is not supported in this browser. Please use Chrome, Edge, or a browser with WebGPU support.';
+const NO_ADAPTER_MESSAGE =
+  'WebGPU is supported but no adapter was found. Check your hardware acceleration settings.';
+
 export async function checkWebGPU(): Promise<{ isAvailable: boolean; message?: string }> {
-  // iOS Safari has WebGPU API but it's unstable for ML workloads and can crash the browser
   if (isIOSSafari()) {
-    console.log('[WebGPU] iOS Safari detected - using WASM for stability');
     return {
       isAvailable: false,
-      message:
-        'Using WASM on iOS Safari for stability. WebGPU ML support is still experimental on this platform.',
+      message: IOS_SAFARI_MESSAGE,
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nav = navigator as any as NavigatorGPU;
   if (!nav.gpu) {
     return {
       isAvailable: false,
-      message:
-        'WebGPU is not supported in this browser. Please use Chrome, Edge, or a browser with WebGPU support.',
+      message: UNSUPPORTED_BROWSER_MESSAGE,
     };
   }
 
@@ -45,15 +49,14 @@ export async function checkWebGPU(): Promise<{ isAvailable: boolean; message?: s
     if (!adapter) {
       return {
         isAvailable: false,
-        message:
-          'WebGPU is supported but no adapter was found. Check your hardware acceleration settings.',
+        message: NO_ADAPTER_MESSAGE,
       };
     }
     return { isAvailable: true };
-  } catch (e) {
+  } catch (error) {
     return {
       isAvailable: false,
-      message: `WebGPU error: ${e}`,
+      message: `WebGPU error: ${error}`,
     };
   }
 }

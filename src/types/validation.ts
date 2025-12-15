@@ -1,33 +1,21 @@
-/**
- * Validation types for the ValidatePage component.
- */
+import { TranscriptionWord } from '../logic/transcriber';
 
 export interface ValidationResult {
   fileId: string;
   reference: string;
   hypothesis: string;
   wer: number;
-  // CEFR validation
   labeledCEFR: string;
   detectedCEFR: string;
   cefrMatch: boolean;
-  // Full pipeline
   wordCount: number;
   clarityScore: number;
   grammarIssues: number;
   processingTimeMs: number;
-  // Full data for detail view
   audioBlob?: Blob;
   fullMetrics?: import('../logic/metrics-calculator').Metrics;
   grammarAnalysis?: import('../logic/grammar-checker').AnalysisResult;
   words?: TranscriptionWord[];
-}
-
-export interface TranscriptionWord {
-  word: string;
-  start: number;
-  end: number;
-  score: number;
 }
 
 export interface STMEntry {

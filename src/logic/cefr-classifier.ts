@@ -1,6 +1,5 @@
 /**
  * CEFR Classifier using transformers.js
- *
  * Loads a fine-tuned DeBERTa model for CEFR level prediction.
  * Model runs entirely in the browser via WebGPU/WASM.
  */
@@ -8,28 +7,24 @@
 import { pipeline, env } from '@huggingface/transformers';
 import { checkWebGPU } from './webgpu-check';
 
-// Configure caching
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 export interface CEFRPrediction {
-  level: string; // A1, A2, B1, B2, C1, C2
-  confidence: number; // 0-1
+  level: string;
+  confidence: number;
   allScores: { label: string; score: number }[];
 }
 
-// Singleton classifier instance
+const DEFAULT_MODEL = 'robg/speako-cefr-deberta';
+const PREDICTION_TOP_K = 6;
+const PREDICTION_MAX_LENGTH = 256;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let classifier: any = null;
 let isLoading = false;
 let loadError: string | null = null;
 
-// HuggingFace model for CEFR classification
-// Fine-tuned DeBERTa-v3 trained on CEFR-labeled speech transcripts with Noise Augmentation
-const DEFAULT_MODEL = 'robg/speako-cefr-deberta';
-
-/**
- * Load the CEFR classification model.
- */
 export async function loadCEFRClassifier(): Promise<void> {
   if (classifier || isLoading) return;
 
@@ -37,7 +32,6 @@ export async function loadCEFRClassifier(): Promise<void> {
     isLoading = true;
     loadError = null;
 
-    // Check WebGPU availability and determine device
     const webGpuStatus = await checkWebGPU();
     let device: 'webgpu' | 'wasm' = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
 
@@ -54,9 +48,8 @@ export async function loadCEFRClassifier(): Promise<void> {
     try {
       classifier = await loadWithDevice(device);
     } catch (webgpuError) {
-      // If WebGPU was attempted and failed, try WASM fallback
       if (device === 'webgpu') {
-        console.warn(`WebGPU failed for CEFR classifier, falling back to WASM:`, webgpuError);
+        console.warn('WebGPU failed for CEFR classifier, falling back to WASM:', webgpuError);
         device = 'wasm';
         classifier = await loadWithDevice('wasm');
       } else {
@@ -65,34 +58,27 @@ export async function loadCEFRClassifier(): Promise<void> {
     }
 
     console.log(`CEFR Classifier loaded successfully with ${device.toUpperCase()}`);
-  } catch (err: any) {
-    console.error('Failed to load CEFR classifier:', err);
-    loadError = err.message || String(err);
-    throw err;
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('Failed to load CEFR classifier:', error);
+    loadError = error.message;
+    throw error;
   } finally {
     isLoading = false;
   }
 }
 
-/**
- * Predict CEFR level for a given text.
- */
 export async function predictCEFR(text: string): Promise<CEFRPrediction> {
   if (!classifier) {
     throw new Error('CEFR Classifier not loaded');
   }
 
-  // Get all class probabilities with explicit truncation
   const results = await classifier(text, {
-    top_k: 6,
+    top_k: PREDICTION_TOP_K,
     truncation: true,
-    max_length: 256,
+    max_length: PREDICTION_MAX_LENGTH,
     padding: true,
   });
-
-  // DeBERTa-v3 with Noise Augmentation is robust enough to trust directly.
-  // No heuristics, no ensembles, no hacks.
-  // "Train Hard, Fight Easy."
 
   return {
     level: results[0].label,
@@ -101,16 +87,10 @@ export async function predictCEFR(text: string): Promise<CEFRPrediction> {
   };
 }
 
-/**
- * Check if classifier is loaded and ready.
- */
 export function isCEFRClassifierReady(): boolean {
   return classifier !== null;
 }
 
-/**
- * Get current loading state.
- */
 export function getCEFRClassifierState(): {
   isLoading: boolean;
   isLoaded: boolean;
@@ -123,15 +103,29 @@ export function getCEFRClassifierState(): {
   };
 }
 
-/**
- * Fallback heuristic CEFR estimation (used when model not available).
- * This is a simplified version of the metrics-calculator logic.
- */
+const HEURISTIC_MIN_WORDS = 10;
+const HEURISTIC_DIVERSITY_MULTIPLIER = 40;
+const HEURISTIC_DIVERSITY_MAX = 30;
+const HEURISTIC_LENGTH_BASE = 3;
+const HEURISTIC_LENGTH_MULTIPLIER = 10;
+const HEURISTIC_LENGTH_MAX = 30;
+const HEURISTIC_WORD_COUNT_DIVISOR = 5;
+const HEURISTIC_WORD_COUNT_MAX = 30;
+const HEURISTIC_CONFIDENCE = 0.5;
+
+const CEFR_THRESHOLDS = {
+  A1: 25,
+  A2: 40,
+  B1: 55,
+  B2: 70,
+  C1: 85,
+} as const;
+
 export function estimateCEFRHeuristic(text: string): CEFRPrediction {
   const words = text.toLowerCase().match(/\b[a-z']+\b/g) || [];
   const wordCount = words.length;
 
-  if (wordCount < 10) {
+  if (wordCount < HEURISTIC_MIN_WORDS) {
     return { level: 'A1', confidence: 0.3, allScores: [] };
   }
 
@@ -139,23 +133,25 @@ export function estimateCEFRHeuristic(text: string): CEFRPrediction {
   const uniqueRatio = uniqueWords / wordCount;
   const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / wordCount;
 
-  // Simple heuristic score
   let score = 0;
-  score += Math.min(uniqueRatio * 40, 30); // Vocabulary diversity
-  score += Math.min((avgWordLength - 3) * 10, 30); // Word complexity
-  score += Math.min(wordCount / 5, 30); // Length bonus
+  score += Math.min(uniqueRatio * HEURISTIC_DIVERSITY_MULTIPLIER, HEURISTIC_DIVERSITY_MAX);
+  score += Math.min(
+    (avgWordLength - HEURISTIC_LENGTH_BASE) * HEURISTIC_LENGTH_MULTIPLIER,
+    HEURISTIC_LENGTH_MAX
+  );
+  score += Math.min(wordCount / HEURISTIC_WORD_COUNT_DIVISOR, HEURISTIC_WORD_COUNT_MAX);
 
   let level: string;
-  if (score < 25) level = 'A1';
-  else if (score < 40) level = 'A2';
-  else if (score < 55) level = 'B1';
-  else if (score < 70) level = 'B2';
-  else if (score < 85) level = 'C1';
+  if (score < CEFR_THRESHOLDS.A1) level = 'A1';
+  else if (score < CEFR_THRESHOLDS.A2) level = 'A2';
+  else if (score < CEFR_THRESHOLDS.B1) level = 'B1';
+  else if (score < CEFR_THRESHOLDS.B2) level = 'B2';
+  else if (score < CEFR_THRESHOLDS.C1) level = 'C1';
   else level = 'C2';
 
   return {
     level,
-    confidence: 0.5, // Low confidence for heuristic
+    confidence: HEURISTIC_CONFIDENCE,
     allScores: [],
   };
 }

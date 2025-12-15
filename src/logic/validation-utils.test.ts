@@ -1,7 +1,3 @@
-/**
- * Tests for validation utilities
- */
-
 import { describe, it, expect } from 'vitest';
 import { normalize, calculateWER, shuffleArray, parseSTM } from './validation-utils';
 
@@ -34,17 +30,14 @@ describe('validation-utils', () => {
     });
 
     it('calculates WER for substitutions', () => {
-      // "hello world" vs "hello there" = 1 substitution / 2 words = 0.5
       expect(calculateWER('hello world', 'hello there')).toBe(0.5);
     });
 
     it('calculates WER for insertions', () => {
-      // "hello" vs "hello world" = 1 insertion / 1 word = 1
       expect(calculateWER('hello', 'hello world')).toBe(1);
     });
 
     it('calculates WER for deletions', () => {
-      // "hello world" vs "hello" = 1 deletion / 2 words = 0.5
       expect(calculateWER('hello world', 'hello')).toBe(0.5);
     });
 

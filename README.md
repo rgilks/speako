@@ -99,18 +99,13 @@ ln -s /path/to/sandi-corpus-2025 ./test-data
 
 ### Running Validation
 
-```bash
-# Run validation on a sample (limit for quick testing)
-npm run validate -- --limit 10
+Validation is performed through the web interface:
 
-# Run full validation (takes longer)
-npm run validate
+1. Start the development server: `npm run dev`
+2. Navigate to [http://localhost:5173/#validate](http://localhost:5173/#validate)
+3. Use the validation controls to run tests on the corpus
 
-# Generate benchmark report
-npm run validate:report
-```
-
-Results are saved to `validation-results.json` and `BENCHMARK.md`.
+Results are saved to `validation-results.json`.
 
 ## Deployment
 

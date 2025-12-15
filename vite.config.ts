@@ -3,6 +3,28 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const MAX_CACHE_SIZE_MB = 50;
+const MAX_CACHE_SIZE_BYTES = MAX_CACHE_SIZE_MB * 1024 * 1024;
+const CACHE_MAX_ENTRIES = 10;
+const CACHE_MAX_AGE_YEAR = 60 * 60 * 24 * 365;
+
+function createRuntimeCache(urlPattern: RegExp, cacheName: string) {
+  return {
+    urlPattern,
+    handler: 'CacheFirst' as const,
+    options: {
+      cacheName,
+      expiration: {
+        maxEntries: CACHE_MAX_ENTRIES,
+        maxAgeSeconds: CACHE_MAX_AGE_YEAR,
+      },
+      cacheableResponse: {
+        statuses: [0, 200],
+      },
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     preact(),
@@ -30,41 +52,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 50 * 1024 * 1024, // 50MB to accommodate the ~30MB model
+        maximumFileSizeToCacheInBytes: MAX_CACHE_SIZE_BYTES,
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/huggingface\.co\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'huggingface-models',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'jsdelivr-cdn',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
+          createRuntimeCache(/^https:\/\/huggingface\.co\/.*/i, 'huggingface-models'),
+          createRuntimeCache(/^https:\/\/cdn\.jsdelivr\.net\/.*/i, 'jsdelivr-cdn'),
         ],
       },
     }),
   ],
-  // Serve test-data directory for validation
   server: {
     host: true,
     allowedHosts: true,
@@ -72,7 +67,6 @@ export default defineConfig({
       allow: ['..', './test-data'],
     },
   },
-  // Exclude test-data from production build
   publicDir: 'public',
   build: {
     copyPublicDir: true,
