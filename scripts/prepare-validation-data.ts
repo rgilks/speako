@@ -18,11 +18,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const TSV_PATH = path.join(
-  PROJECT_ROOT,
-  'public/test-data/reference-materials/flists.flac/dev-asr.tsv'
-);
-const SOURCE_ROOT = path.join(PROJECT_ROOT, 'public/test-data/data');
+const TSV_PATH = path.join(PROJECT_ROOT, 'test-data/reference-materials/flists.flac/dev-asr.tsv');
+const SOURCE_ROOT = path.join(PROJECT_ROOT, 'test-data/data');
 const TARGET_DIR = path.join(PROJECT_ROOT, 'public/test-data/wav-dev');
 
 function checkFFmpeg() {

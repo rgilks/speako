@@ -16,6 +16,7 @@
     "prepare:data": "npx tsx scripts/prepare-validation-data.ts",
     "prepare:models": "npx tsx scripts/download-models.ts",
     "cefr:install": "mkdir -p public/models/cefr-classifier && cp cefr-minilm-onnx/* public/models/cefr-classifier/ && cp public/models/cefr-classifier/model_quantized.onnx public/models/cefr-classifier/model.onnx && echo '✅ CEFR model installed to public/models/cefr-classifier'",
+    "verify:cefr": "npx tsx scripts/verify-cefr.ts",
     "deploy": "npm run build && npx wrangler pages deploy dist"
   },
   "lint-staged": {

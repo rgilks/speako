@@ -3,12 +3,13 @@ import path from 'path';
 
 // Configure to use local models
 env.allowLocalModels = true;
+env.allowRemoteModels = false; // Force local only to debug
 env.useBrowserCache = false;
 // Pointing to the absolute path of the public/models directory
 const projectRoot = process.cwd();
 env.localModelPath = path.join(projectRoot, 'public', 'models');
 
-const MODEL_ID = 'cefr-deberta-v3-small';
+const MODEL_ID = 'cefr-deberta-v3-small/onnx';
 
 // Sample texts for verification
 const SAMPLES = [
