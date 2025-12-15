@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
  * Generate a markdown benchmark report from validation results.
- * 
+ *
  * Usage: npm run validate:report
  */
 
@@ -38,7 +38,7 @@ function generateReport() {
   }
 
   const data: ValidationSummary = JSON.parse(readFileSync(INPUT_FILE, 'utf-8'));
-  
+
   // Find worst performing words (aggregate)
   const wordErrors: Map<string, { ref: string; hyp: string; count: number }> = new Map();
   for (const result of data.results) {
@@ -47,7 +47,7 @@ function generateReport() {
       wordErrors.set(key, {
         ref: result.reference,
         hyp: result.hypothesis,
-        count: (wordErrors.get(key)?.count || 0) + 1
+        count: (wordErrors.get(key)?.count || 0) + 1,
       });
     }
   }
@@ -108,7 +108,7 @@ Files with WER > 30%:
 `;
 
   const highError = data.results
-    .filter(r => r.wer > 0.3)
+    .filter((r) => r.wer > 0.3)
     .sort((a, b) => b.wer - a.wer)
     .slice(0, 10);
 

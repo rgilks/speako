@@ -1,6 +1,6 @@
 /**
  * CEFR Classifier using transformers.js
- * 
+ *
  * Loads a fine-tuned MiniLM model for CEFR level prediction.
  * Model runs entirely in the browser via WebGPU/WASM.
  */
@@ -13,7 +13,7 @@ env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 export interface CEFRPrediction {
-  level: string;      // A1, A2, B1, B2, C1, C2
+  level: string; // A1, A2, B1, B2, C1, C2
   confidence: number; // 0-1
   allScores: { label: string; score: number }[];
 }
@@ -40,8 +40,10 @@ export async function loadCEFRClassifier(): Promise<void> {
     // Check WebGPU availability and determine device
     const webGpuStatus = await checkWebGPU();
     let device: 'webgpu' | 'wasm' = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
-    
-    console.log(`Loading CEFR Classifier with ${device.toUpperCase()}${device === 'wasm' ? ' (WebGPU unavailable)' : ''}...`);
+
+    console.log(
+      `Loading CEFR Classifier with ${device.toUpperCase()}${device === 'wasm' ? ' (WebGPU unavailable)' : ''}...`
+    );
 
     const loadWithDevice = async (selectedDevice: 'webgpu' | 'wasm') => {
       return await pipeline('text-classification', DEFAULT_MODEL, {
@@ -61,7 +63,7 @@ export async function loadCEFRClassifier(): Promise<void> {
         throw webgpuError;
       }
     }
-    
+
     console.log(`CEFR Classifier loaded successfully with ${device.toUpperCase()}`);
   } catch (err: any) {
     console.error('Failed to load CEFR classifier:', err);
@@ -76,27 +78,27 @@ export async function loadCEFRClassifier(): Promise<void> {
  * Predict CEFR level for a given text.
  */
 export async function predictCEFR(text: string): Promise<CEFRPrediction> {
-    if (!classifier) {
-        throw new Error("CEFR Classifier not loaded");
-    }
+  if (!classifier) {
+    throw new Error('CEFR Classifier not loaded');
+  }
 
-    // Get all class probabilities with explicit truncation
-    const results = await classifier(text, { 
-      top_k: 6,
-      truncation: true,
-      max_length: 256,
-      padding: true
-    });
-    
-    // DeBERTa-v3 with Noise Augmentation is robust enough to trust directly.
-    // No heuristics, no ensembles, no hacks.
-    // "Train Hard, Fight Easy."
-    
-    return {
-      level: results[0].label,
-      confidence: results[0].score,
-      allScores: results
-    };
+  // Get all class probabilities with explicit truncation
+  const results = await classifier(text, {
+    top_k: 6,
+    truncation: true,
+    max_length: 256,
+    padding: true,
+  });
+
+  // DeBERTa-v3 with Noise Augmentation is robust enough to trust directly.
+  // No heuristics, no ensembles, no hacks.
+  // "Train Hard, Fight Easy."
+
+  return {
+    level: results[0].label,
+    confidence: results[0].score,
+    allScores: results,
+  };
 }
 
 /**
@@ -117,7 +119,7 @@ export function getCEFRClassifierState(): {
   return {
     isLoading,
     isLoaded: classifier !== null,
-    error: loadError
+    error: loadError,
   };
 }
 
@@ -128,21 +130,21 @@ export function getCEFRClassifierState(): {
 export function estimateCEFRHeuristic(text: string): CEFRPrediction {
   const words = text.toLowerCase().match(/\b[a-z']+\b/g) || [];
   const wordCount = words.length;
-  
+
   if (wordCount < 10) {
     return { level: 'A1', confidence: 0.3, allScores: [] };
   }
-  
+
   const uniqueWords = new Set(words).size;
   const uniqueRatio = uniqueWords / wordCount;
   const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / wordCount;
-  
+
   // Simple heuristic score
   let score = 0;
-  score += Math.min(uniqueRatio * 40, 30);        // Vocabulary diversity
+  score += Math.min(uniqueRatio * 40, 30); // Vocabulary diversity
   score += Math.min((avgWordLength - 3) * 10, 30); // Word complexity
-  score += Math.min(wordCount / 5, 30);            // Length bonus
-  
+  score += Math.min(wordCount / 5, 30); // Length bonus
+
   let level: string;
   if (score < 25) level = 'A1';
   else if (score < 40) level = 'A2';
@@ -150,10 +152,10 @@ export function estimateCEFRHeuristic(text: string): CEFRPrediction {
   else if (score < 70) level = 'B2';
   else if (score < 85) level = 'C1';
   else level = 'C2';
-  
+
   return {
     level,
     confidence: 0.5, // Low confidence for heuristic
-    allScores: []
+    allScores: [],
   };
 }

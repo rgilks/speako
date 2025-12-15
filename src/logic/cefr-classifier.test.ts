@@ -2,8 +2,12 @@
  * Tests for CEFR Classifier
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { estimateCEFRHeuristic, isCEFRClassifierReady, getCEFRClassifierState } from './cefr-classifier';
+import { describe, it, expect } from 'vitest';
+import {
+  estimateCEFRHeuristic,
+  isCEFRClassifierReady,
+  getCEFRClassifierState,
+} from './cefr-classifier';
 
 describe('cefr-classifier', () => {
   describe('estimateCEFRHeuristic', () => {
@@ -19,13 +23,15 @@ describe('cefr-classifier', () => {
     });
 
     it('returns B1-B2 for intermediate text', () => {
-      const text = 'I think that learning a new language is very interesting but also quite difficult. You need to practice every day if you want to improve your skills.';
+      const text =
+        'I think that learning a new language is very interesting but also quite difficult. You need to practice every day if you want to improve your skills.';
       const result = estimateCEFRHeuristic(text);
       expect(['B1', 'B2']).toContain(result.level);
     });
 
     it('returns C1-C2 for advanced text', () => {
-      const text = 'The implications of this policy are far-reaching, potentially altering the socioeconomic landscape for decades to come. Nevertheless, we must proceed with caution, considering the multifaceted nature of the challenges we face.';
+      const text =
+        'The implications of this policy are far-reaching, potentially altering the socioeconomic landscape for decades to come. Nevertheless, we must proceed with caution, considering the multifaceted nature of the challenges we face.';
       const result = estimateCEFRHeuristic(text);
       expect(['B2', 'C1', 'C2']).toContain(result.level);
     });

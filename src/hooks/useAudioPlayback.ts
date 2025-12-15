@@ -1,9 +1,9 @@
-import { useRef, useState, useCallback, useEffect } from "preact/hooks";
-import { Ref } from "preact";
+import { useRef, useState, useCallback, useEffect } from 'preact/hooks';
+import { Ref } from 'preact';
 import WaveSurfer from 'wavesurfer.js';
-// @ts-ignore
+// @ts-expect-error - No types available for this plugin
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
-import { TranscriptionWord } from "../logic/transcriber";
+import { TranscriptionWord } from '../logic/transcriber';
 
 export interface TooltipState {
   visible: boolean;
@@ -40,32 +40,35 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-export function useAudioPlayback({ 
-  audioBlob, 
+export function useAudioPlayback({
+  audioBlob,
   words = [],
-  onTooltipChange 
+  onTooltipChange,
 }: UseAudioPlaybackOptions): UseAudioPlaybackReturn {
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
   const regions = useRef<RegionsPlugin | null>(null);
   const wordRegions = useRef<Map<number, any>>(new Map());
-  
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [duration, setDuration] = useState("0:00");
-  const [currentTime, setCurrentTime] = useState("0:00");
+  const [duration, setDuration] = useState('0:00');
+  const [currentTime, setCurrentTime] = useState('0:00');
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
 
   // Find current word based on time
-  const findCurrentWordIndex = useCallback((time: number): number | null => {
-    for (let i = 0; i < words.length; i++) {
-      if (time >= words[i].start && time <= words[i].end) {
-        return i;
+  const findCurrentWordIndex = useCallback(
+    (time: number): number | null => {
+      for (let i = 0; i < words.length; i++) {
+        if (time >= words[i].start && time <= words[i].end) {
+          return i;
+        }
       }
-    }
-    return null;
-  }, [words]);
+      return null;
+    },
+    [words]
+  );
 
   // Highlight active word
   const updateActiveWord = useCallback((index: number | null) => {
@@ -74,14 +77,14 @@ export function useAudioPlayback({
         region.element.classList.remove('av-word-active');
       }
     });
-    
+
     if (index !== null) {
       const region = wordRegions.current.get(index);
       if (region?.element) {
         region.element.classList.add('av-word-active');
       }
     }
-    
+
     setCurrentWordIndex(index);
   }, []);
 
@@ -116,7 +119,7 @@ export function useAudioPlayback({
       updateActiveWord(null);
     });
     wavesurfer.current.on('decode', (d) => setDuration(formatTime(d)));
-    
+
     wavesurfer.current.on('timeupdate', (t) => {
       setCurrentTime(formatTime(t));
       const wordIdx = findCurrentWordIndex(t);
@@ -154,7 +157,7 @@ export function useAudioPlayback({
         if (region.element) {
           region.element.style.borderBottom = `2px solid ${borderColor}`;
           region.element.style.transition = 'all 0.2s ease';
-          
+
           // Tooltip on hover
           region.element.addEventListener('mouseenter', (e: MouseEvent) => {
             onTooltipChange?.({
@@ -162,29 +165,33 @@ export function useAudioPlayback({
               x: e.clientX,
               y: e.clientY,
               word: word.word,
-              duration: word.end - word.start
+              duration: word.end - word.start,
             });
           });
-          
+
           region.element.addEventListener('mousemove', (e: MouseEvent) => {
             onTooltipChange?.({
               visible: true,
               x: e.clientX,
               y: e.clientY,
               word: word.word,
-              duration: word.end - word.start
+              duration: word.end - word.start,
             });
           });
-          
+
           region.element.addEventListener('mouseleave', () => {
             onTooltipChange?.({
-              visible: false, x: 0, y: 0, word: '', duration: 0
+              visible: false,
+              x: 0,
+              y: 0,
+              word: '',
+              duration: 0,
             });
           });
         }
       });
     });
-    
+
     // Click region to play from that word
     regionsPlugin.on('region-clicked', (region: any, e: any) => {
       e.stopPropagation();
@@ -197,13 +204,13 @@ export function useAudioPlayback({
   }, [audioBlob, words, onTooltipChange]);
 
   const togglePlay = useCallback(() => wavesurfer.current?.playPause(), []);
-  
+
   const stopPlayback = useCallback(() => {
     wavesurfer.current?.stop();
     setIsPlaying(false);
     updateActiveWord(null);
   }, [updateActiveWord]);
-  
+
   const changeSpeed = useCallback((speed: number) => {
     if (wavesurfer.current) {
       wavesurfer.current.setPlaybackRate(speed);

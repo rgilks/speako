@@ -10,7 +10,9 @@ interface NavigatorGPU {
  */
 function isIOSSafari(): boolean {
   const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
   return isIOS && isSafari;
 }
@@ -24,7 +26,8 @@ export async function checkWebGPU(): Promise<{ isAvailable: boolean; message?: s
     console.log('[WebGPU] iOS Safari detected - using WASM for stability');
     return {
       isAvailable: false,
-      message: "Using WASM on iOS Safari for stability. WebGPU ML support is still experimental on this platform."
+      message:
+        'Using WASM on iOS Safari for stability. WebGPU ML support is still experimental on this platform.',
     };
   }
 
@@ -32,7 +35,8 @@ export async function checkWebGPU(): Promise<{ isAvailable: boolean; message?: s
   if (!nav.gpu) {
     return {
       isAvailable: false,
-      message: "WebGPU is not supported in this browser. Please use Chrome, Edge, or a browser with WebGPU support."
+      message:
+        'WebGPU is not supported in this browser. Please use Chrome, Edge, or a browser with WebGPU support.',
     };
   }
 
@@ -41,14 +45,15 @@ export async function checkWebGPU(): Promise<{ isAvailable: boolean; message?: s
     if (!adapter) {
       return {
         isAvailable: false,
-        message: "WebGPU is supported but no adapter was found. Check your hardware acceleration settings."
+        message:
+          'WebGPU is supported but no adapter was found. Check your hardware acceleration settings.',
       };
     }
     return { isAvailable: true };
   } catch (e) {
     return {
       isAvailable: false,
-      message: `WebGPU error: ${e}`
+      message: `WebGPU error: ${e}`,
     };
   }
 }

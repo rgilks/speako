@@ -6,8 +6,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: [['html', { open: 'never' }], ['json', { outputFile: 'e2e/results.json' }]],
-  
+  reporter: [
+    ['html', { open: 'never' }],
+    ['json', { outputFile: 'e2e/results.json' }],
+  ],
+
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
@@ -17,7 +20,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         permissions: ['microphone'],
         // Enable WebGPU and fake media

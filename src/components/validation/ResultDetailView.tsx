@@ -15,69 +15,110 @@ interface ResultDetailViewProps {
 export function ResultDetailView({ result, onClose }: ResultDetailViewProps) {
   return (
     <div className="card-glass" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1rem',
+        }}
+      >
         <h3 style={{ margin: 0 }}>📋 {result.fileId}</h3>
-        <button 
+        <button
           onClick={onClose}
-          style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', color: 'inherit' }}
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 12px',
+            cursor: 'pointer',
+            color: 'inherit',
+          }}
         >
           ✕ Close
         </button>
       </div>
-      
+
       {/* Audio Visualizer */}
-      {result.audioBlob && (
-        <AudioVisualizer 
-          audioBlob={result.audioBlob} 
-          words={result.words}
-        />
-      )}
-      
+      {result.audioBlob && <AudioVisualizer audioBlob={result.audioBlob} words={result.words} />}
+
       {/* Metrics Grid */}
       {result.fullMetrics && (
-        <MetricsGrid 
+        <MetricsGrid
           metrics={{
             ...result.fullMetrics,
             wpm: 0,
-            pronunciation_score: result.fullMetrics.pronunciation_score ?? 0
-          }} 
-          clarityScore={result.clarityScore} 
+            pronunciation_score: result.fullMetrics.pronunciation_score ?? 0,
+          }}
+          clarityScore={result.clarityScore}
         />
       )}
-      
+
       {/* Reference vs Hypothesis Comparison */}
-      <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+      <div
+        style={{
+          marginTop: '1.5rem',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '1rem',
+        }}
+      >
         <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-          <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Reference (Expected)</h4>
+          <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            Reference (Expected)
+          </h4>
           <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{result.reference}</p>
         </div>
         <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-          <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Transcription (Detected)</h4>
+          <h4 style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            Transcription (Detected)
+          </h4>
           <p style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>{result.hypothesis}</p>
         </div>
       </div>
-      
+
       {/* Teacher Report */}
       {result.grammarAnalysis && (
         <div style={{ marginTop: '1.5rem' }}>
-          <TeacherReport 
-            analysis={result.grammarAnalysis} 
+          <TeacherReport
+            analysis={result.grammarAnalysis}
             transcript={{ text: result.hypothesis, words: result.words || [] }}
           />
         </div>
       )}
-      
+
       {/* WER Details */}
-      <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px' }}>
-        <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', textAlign: 'center' }}>
+      <div
+        style={{
+          marginTop: '1.5rem',
+          padding: '1rem',
+          background: 'rgba(59, 130, 246, 0.1)',
+          borderRadius: '8px',
+        }}
+      >
+        <div
+          style={{ display: 'flex', gap: '2rem', justifyContent: 'center', textAlign: 'center' }}
+        >
           <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: result.wer < 0.2 ? '#4ade80' : result.wer < 0.4 ? '#fbbf24' : '#f87171' }}>
+            <div
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                color: result.wer < 0.2 ? '#4ade80' : result.wer < 0.4 ? '#fbbf24' : '#f87171',
+              }}
+            >
               {(result.wer * 100).toFixed(1)}%
             </div>
             <small>Word Error Rate</small>
           </div>
           <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: result.cefrMatch ? '#4ade80' : '#f87171' }}>
+            <div
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                color: result.cefrMatch ? '#4ade80' : '#f87171',
+              }}
+            >
               {result.detectedCEFR} / {result.labeledCEFR}
             </div>
             <small>Detected / Expected CEFR</small>

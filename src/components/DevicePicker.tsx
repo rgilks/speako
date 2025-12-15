@@ -28,23 +28,24 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
       try {
         // Request permission first (needed to get device labels)
         await navigator.mediaDevices.getUserMedia({ audio: true });
-        
+
         const allDevices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = allDevices
-          .filter(d => d.kind === 'audioinput')
-          .map(d => ({
+          .filter((d) => d.kind === 'audioinput')
+          .map((d) => ({
             deviceId: d.deviceId,
-            label: d.label || `Microphone ${d.deviceId.slice(0, 8)}...`
+            label: d.label || `Microphone ${d.deviceId.slice(0, 8)}...`,
           }));
-        
+
         devices.value = audioInputs;
         loading.value = false;
-        
+
         // Try to restore saved device, or auto-select first
         if (!selectedDeviceId && audioInputs.length > 0) {
           const savedDeviceId = localStorage.getItem(STORAGE_KEY);
-          const savedDeviceExists = savedDeviceId && audioInputs.some(d => d.deviceId === savedDeviceId);
-          
+          const savedDeviceExists =
+            savedDeviceId && audioInputs.some((d) => d.deviceId === savedDeviceId);
+
           if (savedDeviceExists) {
             onDeviceChange(savedDeviceId);
           } else {
@@ -57,9 +58,9 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
         loading.value = false;
       }
     }
-    
+
     loadDevices();
-    
+
     // Listen for device changes (plug/unplug)
     navigator.mediaDevices.addEventListener('devicechange', loadDevices);
     return () => {
@@ -78,7 +79,11 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
   }
 
   if (error.value) {
-    return <p className="text-muted text-sm" style={{ color: 'var(--accent-error)' }}>{error.value}</p>;
+    return (
+      <p className="text-muted text-sm" style={{ color: 'var(--accent-error)' }}>
+        {error.value}
+      </p>
+    );
   }
 
   if (devices.value.length === 0) {
@@ -92,15 +97,13 @@ export function DevicePicker({ selectedDeviceId, onDeviceChange }: DevicePickerP
 
   return (
     <div className="device-picker">
-      <label className="device-picker-label">
-        🎤 Microphone
-      </label>
-      <select 
+      <label className="device-picker-label">🎤 Microphone</label>
+      <select
         className="device-picker-select"
         value={selectedDeviceId}
         onChange={(e) => handleDeviceChange((e.target as HTMLSelectElement).value)}
       >
-        {devices.value.map(device => (
+        {devices.value.map((device) => (
           <option key={device.deviceId} value={device.deviceId}>
             {device.label}
           </option>

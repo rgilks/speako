@@ -1,7 +1,7 @@
-import { useRef, useState, useEffect } from "preact/hooks";
-import { TranscriptionWord } from "../../logic/transcriber";
-import { useAudioPlayback, TooltipState } from "../../hooks/useAudioPlayback";
-import { AudioControls } from "./AudioControls";
+import { useRef, useState, useEffect } from 'preact/hooks';
+import { TranscriptionWord } from '../../logic/transcriber';
+import { useAudioPlayback, TooltipState } from '../../hooks/useAudioPlayback';
+import { AudioControls } from './AudioControls';
 
 interface AudioVisualizerProps {
   audioBlob: Blob;
@@ -10,9 +10,9 @@ interface AudioVisualizerProps {
 
 function Tooltip({ tooltip }: { tooltip: TooltipState }) {
   if (!tooltip.visible) return null;
-  
+
   return (
-    <div 
+    <div
       className="av-tooltip"
       style={{
         left: `${tooltip.x + 12}px`,
@@ -20,9 +20,7 @@ function Tooltip({ tooltip }: { tooltip: TooltipState }) {
       }}
     >
       <div className="av-tooltip-word">{tooltip.word}</div>
-      <div className="av-tooltip-duration">
-        {(tooltip.duration * 1000).toFixed(0)}ms
-      </div>
+      <div className="av-tooltip-duration">{(tooltip.duration * 1000).toFixed(0)}ms</div>
     </div>
   );
 }
@@ -41,7 +39,11 @@ function LoadingSkeleton() {
 export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
-    visible: false, x: 0, y: 0, word: '', duration: 0
+    visible: false,
+    x: 0,
+    y: 0,
+    word: '',
+    duration: 0,
   });
 
   const {
@@ -51,7 +53,7 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
     duration,
     currentTime,
     playbackRate,
-    currentWordIndex,
+    currentWordIndex: _currentWordIndex,
     togglePlay,
     stopPlayback,
     changeSpeed,
@@ -60,7 +62,7 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
   } = useAudioPlayback({
     audioBlob,
     words,
-    onTooltipChange: setTooltip
+    onTooltipChange: setTooltip,
   });
 
   // Keyboard controls
@@ -68,7 +70,7 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!cardRef.current) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      
+
       switch (e.code) {
         case 'Space':
           e.preventDefault();
@@ -100,7 +102,7 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
   return (
     <div className="av-card" ref={cardRef}>
       <Tooltip tooltip={tooltip} />
-      
+
       {/* Stats bar - word count only */}
       {words.length > 0 && (
         <div className="av-stats-bar">
@@ -110,7 +112,7 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
           </div>
         </div>
       )}
-      
+
       <AudioControls
         isPlaying={isPlaying}
         playbackRate={playbackRate}
@@ -125,26 +127,28 @@ export function AudioVisualizer({ audioBlob, words = [] }: AudioVisualizerProps)
 
       {/* Waveform Area */}
       {isLoading && <LoadingSkeleton />}
-      <div 
-        ref={containerRef} 
-        id="waveform" 
+      <div
+        ref={containerRef}
+        id="waveform"
         className={`av-waveform ${isPlaying ? 'playing' : ''}`}
         style={{ display: isLoading ? 'none' : 'block' }}
       />
 
       {/* Footer: Keyboard Hints */}
       <div className="av-legend">
-         <div className="av-keyboard-hints">
-           <span className="av-kbd-hint">
-             <span className="av-kbd">Space</span> Play
-           </span>
-           <span className="av-kbd-hint">
-             <span className="av-kbd">←</span><span className="av-kbd">→</span> Skip
-           </span>
-           <span className="av-kbd-hint">
-             <span className="av-kbd">↑</span><span className="av-kbd">↓</span> Speed
-           </span>
-         </div>
+        <div className="av-keyboard-hints">
+          <span className="av-kbd-hint">
+            <span className="av-kbd">Space</span> Play
+          </span>
+          <span className="av-kbd-hint">
+            <span className="av-kbd">←</span>
+            <span className="av-kbd">→</span> Skip
+          </span>
+          <span className="av-kbd-hint">
+            <span className="av-kbd">↑</span>
+            <span className="av-kbd">↓</span> Speed
+          </span>
+        </div>
       </div>
     </div>
   );

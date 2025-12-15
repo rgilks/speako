@@ -2,7 +2,7 @@
  * Validation controls panel.
  */
 
-import { WhisperModel, WHISPER_MODELS } from '../../types/validation';
+import { WHISPER_MODELS } from '../../types/validation';
 
 interface ValidationControlsProps {
   selectedModel: string;
@@ -21,29 +21,56 @@ export function ValidationControls({
   isComplete,
   onModelChange,
   onFileLimitChange,
-  onStartValidation
+  onStartValidation,
 }: ValidationControlsProps) {
   if (isRunning) return null;
-  
+
   return (
-    <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+    <div
+      style={{
+        marginTop: '1rem',
+        display: 'flex',
+        gap: '1rem',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+      }}
+    >
       <label>
         Model:
-        <select 
+        <select
           value={selectedModel}
           onChange={(e) => onModelChange((e.target as HTMLSelectElement).value)}
-          style={{ marginLeft: '0.5rem', padding: '6px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: 'inherit' }}
+          style={{
+            marginLeft: '0.5rem',
+            padding: '6px',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '4px',
+            color: 'inherit',
+          }}
         >
-          {WHISPER_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {WHISPER_MODELS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
         </select>
       </label>
       <label>
         Files:
-        <input 
+        <input
           type="number"
           value={fileLimit}
           onChange={(e) => onFileLimitChange(parseInt((e.target as HTMLInputElement).value) || 10)}
-          style={{ marginLeft: '0.5rem', width: '60px', padding: '6px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: 'inherit' }}
+          style={{
+            marginLeft: '0.5rem',
+            width: '60px',
+            padding: '6px',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '4px',
+            color: 'inherit',
+          }}
         />
       </label>
       <button className="btn-primary" onClick={onStartValidation}>

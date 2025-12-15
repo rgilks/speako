@@ -21,14 +21,14 @@ export default defineConfig({
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
+            type: 'image/png',
+          },
+        ],
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 50 * 1024 * 1024, // 50MB to accommodate the ~30MB model
@@ -40,47 +40,47 @@ export default defineConfig({
               cacheName: 'huggingface-models',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
               },
               cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
+                statuses: [0, 200],
+              },
+            },
           },
-           {
+          {
             urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
             handler: 'CacheFirst',
-             options: {
+            options: {
               cacheName: 'jsdelivr-cdn',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 
+                maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
-      }
-    })
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
+    }),
   ],
   // Serve test-data directory for validation
   server: {
     host: true,
     allowedHosts: true,
     fs: {
-      allow: ['..', './test-data', '/Users/robertgilks/Desktop/sandi-corpus-2025']
-    }
+      allow: ['..', './test-data', '/Users/robertgilks/Desktop/sandi-corpus-2025'],
+    },
   },
   resolve: {
     alias: {
-      '/test-data': resolve(__dirname, 'test-data')
-    }
+      '/test-data': resolve(__dirname, 'test-data'),
+    },
   },
   test: {
     environment: 'jsdom',
     globals: true,
-    exclude: ['**/node_modules/**', '**/e2e/**']
-  }
+    exclude: ['**/node_modules/**', '**/e2e/**'],
+  },
 });

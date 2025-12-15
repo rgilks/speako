@@ -4,7 +4,7 @@ import { test, expect, Page } from '@playwright/test';
  * Validation E2E Tests
  * Run: npm run test:e2e
  * Run headed: npm run test:e2e:headed
- * 
+ *
  * Tests the full validation pipeline with WebGPU Whisper models.
  */
 
@@ -28,33 +28,39 @@ interface ValidationResults {
   }>;
 }
 
-async function runValidation(page: Page, model: string, fileLimit: number): Promise<ValidationResults> {
+async function runValidation(
+  page: Page,
+  model: string,
+  fileLimit: number
+): Promise<ValidationResults> {
   await page.goto('/#validate');
-  
+
   // Forward console logs to terminal
-  page.on('console', msg => console.log(`[BROWSER] ${msg.text()}`));
-  page.on('pageerror', err => console.error(`[BROWSER ERROR] ${err.message}`));
+  page.on('console', (msg) => console.log(`[BROWSER] ${msg.text()}`));
+  page.on('pageerror', (err) => console.error(`[BROWSER ERROR] ${err.message}`));
 
   // Wait for app to be ready
   await page.waitForSelector('h1:has-text("Full Pipeline Validation")');
-  
+
   // Trigger validation programmatically
-  await page.evaluate(({ id, count }) => {
+  await page.evaluate(
+    ({ id, count }) => {
       console.log(`[TEST] Triggering validation for ${id} with ${count} files...`);
       (window as any).startValidation(id, count);
-  }, { id: model, count: fileLimit });
-  
-  // Wait for completion (handles model loading + transcription)
-  await page.waitForFunction(
-    () => document.body.textContent?.includes('Done!'),
-    { timeout: 300000 }
+    },
+    { id: model, count: fileLimit }
   );
-  
+
+  // Wait for completion (handles model loading + transcription)
+  await page.waitForFunction(() => document.body.textContent?.includes('Done!'), {
+    timeout: 300000,
+  });
+
   // Get results from window
   const results: ValidationResults = await page.evaluate(() => {
     return (window as any).__validationResults;
   });
-  
+
   return results;
 }
 
@@ -64,13 +70,13 @@ test.describe('Whisper Model Validation', () => {
   test('Base model achieves acceptable WER', async ({ page }) => {
     // Reduced from 20 to 2 for speed
     const results = await runValidation(page, 'Xenova/whisper-base.en', 2);
-    
+
     console.log('==== BASE MODEL RESULTS ====');
     console.log(`Files: ${results.files}`);
     console.log(`Avg WER: ${(results.avgWER * 100).toFixed(1)}%`);
     console.log(`CEFR Accuracy: ${(results.cefrAccuracy * 100).toFixed(0)}%`);
     console.log(`Avg Clarity: ${results.avgClarity.toFixed(0)}`);
-    
+
     expect(results.files).toBeGreaterThanOrEqual(1);
     expect(results.avgWER).toBeLessThan(0.6); // <60% WER
     expect(results.avgClarity).toBeGreaterThan(50);
@@ -80,12 +86,12 @@ test.describe('Whisper Model Validation', () => {
     // Use tiny.en which is local
     // Reduced from 5 to 1 for speed
     const results = await runValidation(page, 'Xenova/whisper-tiny.en', 1);
-    
+
     console.log('==== TINY MODEL RESULTS ====');
     console.log(`Files: ${results.files}`);
     console.log(`Avg WER: ${(results.avgWER * 100).toFixed(1)}%`);
     console.log(`CEFR Accuracy: ${(results.cefrAccuracy * 100).toFixed(0)}%`);
-    
+
     expect(results.files).toBeGreaterThanOrEqual(3);
     // Tiny has worse accuracy, just check it runs
     expect(results.avgWER).toBeLessThan(1.0);
