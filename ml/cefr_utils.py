@@ -192,31 +192,45 @@ def load_universal_cefr(
         print("⚠️ datasets library not installed. Run: pip install datasets")
         return []
     
-    # Dataset configurations to try in order
+    # Dataset configurations - will try to load ALL of these and combine
     DATASET_CONFIGS = [
-        {
-            "name": "lksenel/UniversalCEFR",
-            "text_field": "text",
-            "level_field": "cefr_level",
-            "level_is_numeric": False,  # String like "A1", "B2"
-            "lang_field": "lang",
-            "lang_filter": "en",
-            "source_field": "source_name",
-        },
         {
             "name": "edesaras/CEFR-Sentence-Level-Annotations",
             "text_field": "text",
             "level_field": "Annotator I",  # Integer 0-5 = A1-C2
             "level_is_numeric": True,
-            "lang_field": None,  # English only
+            "lang_field": None,
             "lang_filter": None,
             "source_field": None,
+            "license": "CC-BY-NC-SA",
+        },
+        {
+            "name": "Alex123321/english_cefr_dataset",
+            "text_field": "text",
+            "level_field": "label",  # CEFR level string
+            "level_is_numeric": False,
+            "lang_field": None,
+            "lang_filter": None,
+            "source_field": None,
+            "license": "Apache-2.0",
+        },
+        {
+            "name": "amontgomerie/cefr-levelled-english-texts",
+            "text_field": "text",
+            "level_field": "label",  # CEFR level string
+            "level_is_numeric": False,
+            "lang_field": None,
+            "lang_filter": None,
+            "source_field": None,
+            "license": "CC0",
         },
     ]
     
+    all_entries = []
+    
     for config in DATASET_CONFIGS:
         dataset_name = config["name"]
-        print(f"📦 Trying to load {dataset_name}...")
+        print(f"📦 Loading {dataset_name} ({config['license']})...")
         
         try:
             dataset = load_dataset(dataset_name, split="train", trust_remote_code=True)
@@ -257,8 +271,8 @@ def load_universal_cefr(
                         skipped_levels += 1
                         continue
                     label_id = LABEL2ID[base_level]
-                source = config["source_field"]
-                source_name = item.get(source, dataset_name.split('/')[-1]) if source else dataset_name.split('/')[-1]
+                
+                source_name = dataset_name.split('/')[-1]
                 
                 # Chunk long texts to match speech transcript lengths
                 word_count = len(text.split())
@@ -281,22 +295,25 @@ def load_universal_cefr(
             if skipped_levels > 0:
                 print(f"   ⚠️ Skipped {skipped_levels} entries with invalid CEFR levels")
             
-            if not entries:
-                print(f"   ⚠️ No valid entries found in {dataset_name}, trying next...")
-                continue
-            
-            # Shuffle and limit
-            random.shuffle(entries)
-            if max_samples and len(entries) > max_samples:
-                entries = entries[:max_samples]
-            
-            print(f"   ✅ Loaded {len(entries)} CEFR-labeled entries from {dataset_name}")
-            return entries
-            
+            if entries:
+                print(f"   ✅ Loaded {len(entries)} entries from {dataset_name}")
+                all_entries.extend(entries)
+            else:
+                print(f"   ⚠️ No valid entries from {dataset_name}")
+                
         except Exception as e:
             print(f"   ⚠️ Failed to load {dataset_name}: {e}")
             continue
     
-    print("❌ All dataset sources failed!")
-    return []
+    if not all_entries:
+        print("❌ All dataset sources failed!")
+        return []
+    
+    # Shuffle and limit
+    random.shuffle(all_entries)
+    if max_samples and len(all_entries) > max_samples:
+        all_entries = all_entries[:max_samples]
+    
+    print(f"📊 Total training samples: {len(all_entries)}")
+    return all_entries
 
