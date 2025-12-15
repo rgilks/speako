@@ -10,12 +10,18 @@ interface MicLevelMeterProps {
  * Uses AudioLevelIndicator for visualization, powered by real-time Web Audio analysis.
  */
 export function MicLevelMeter({ deviceId }: MicLevelMeterProps) {
-  const { isReady, getLevel } = useMicrophoneAnalyser(deviceId);
+  const { isReady, error, getLevel } = useMicrophoneAnalyser(deviceId);
 
   if (!isReady) {
     return (
       <div className="mic-level-meter" style={{ textAlign: 'center', opacity: 0.5 }}>
-        <p className="mic-level-hint">Connecting to microphone...</p>
+        {error ? (
+          <p className="mic-level-hint" style={{ color: 'var(--accent-error)' }}>
+            {error}
+          </p>
+        ) : (
+          <p className="mic-level-hint">Connecting to microphone...</p>
+        )}
       </div>
     );
   }

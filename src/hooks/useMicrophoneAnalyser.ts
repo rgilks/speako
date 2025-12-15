@@ -3,6 +3,7 @@ import { calculateAudioLevel } from '../logic/audio-analysis';
 
 interface UseMicrophoneAnalyserResult {
   isReady: boolean;
+  error: string | null;
   getLevel: () => number;
 }
 
@@ -39,8 +40,15 @@ function cleanupStream(stream: MediaStream | null) {
 }
 
 async function cleanupAudioContext(audioContext: AudioContext | null) {
-  if (audioContext) {
-    await audioContext.close();
+  if (audioContext && audioContext.state !== 'closed') {
+    try {
+      await audioContext.close();
+    } catch (err) {
+      // Ignore errors if context is already closed or closing
+      if (err instanceof Error && !err.message.includes('closed')) {
+        console.warn('[useMicrophoneAnalyser] Error closing AudioContext:', err);
+      }
+    }
   }
 }
 
@@ -50,22 +58,39 @@ async function cleanupAudioContext(audioContext: AudioContext | null) {
  */
 export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserResult {
   const [isReady, setIsReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
-    if (!deviceId) return;
+    if (!deviceId) {
+      setIsReady(false);
+      setError(null);
+      return;
+    }
 
     setIsReady(false);
+    setError(null);
+
+    let cancelled = false;
 
     async function setupAudio() {
       try {
+        // Clean up previous resources
         cleanupStream(streamRef.current);
         await cleanupAudioContext(audioContextRef.current);
 
+        if (cancelled) return;
+
         const stream = await navigator.mediaDevices.getUserMedia(createAudioConstraints(deviceId));
+
+        if (cancelled) {
+          cleanupStream(stream);
+          return;
+        }
+
         streamRef.current = stream;
 
         const audioContext = new AudioContext();
@@ -78,17 +103,30 @@ export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserRe
         analyserRef.current = analyser;
         dataArrayRef.current = new Uint8Array(analyser.fftSize);
 
-        setIsReady(true);
+        if (!cancelled) {
+          setIsReady(true);
+          setError(null);
+        }
       } catch (err) {
+        if (cancelled) return;
+
         console.error('[useMicrophoneAnalyser] Error accessing microphone:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to access microphone';
+        setError(errorMessage);
+        setIsReady(false);
       }
     }
 
     setupAudio();
 
     return () => {
+      cancelled = true;
       cleanupStream(streamRef.current);
-      audioContextRef.current?.close();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {
+          // Ignore errors when closing during cleanup
+        });
+      }
     };
   }, [deviceId]);
 
@@ -97,5 +135,5 @@ export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserRe
     return calculateAudioLevel(analyserRef.current, dataArrayRef.current);
   }, []);
 
-  return { isReady, getLevel };
+  return { isReady, error, getLevel };
 }

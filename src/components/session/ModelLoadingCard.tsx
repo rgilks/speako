@@ -69,6 +69,7 @@ function WebGpuStatusBadge({ status }: { status: WebGpuStatus }) {
 
       <style>{`
         .tooltip-container:hover .tooltip { display: block !important; animation: fadeIn 0.2s ease-out; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
@@ -144,17 +145,46 @@ export function ModelLoadingCard({ modelLoadingState, webGpuStatus }: ModelLoadi
         <>
           <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
             {modelLoadingState.value.isLoading
-              ? 'Downloading Distil-Whisper model for accurate speech recognition...'
+              ? modelLoadingState.value.progress >= 100
+                ? 'Initializing AI model...'
+                : 'Downloading Distil-Whisper model for accurate speech recognition...'
               : 'Preparing to load AI model...'}
           </p>
 
-          <ProgressBar progress={modelLoadingState.value.progress} />
-
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-            {modelLoadingState.value.progress}% complete
-            {modelLoadingState.value.progress < 100 &&
-              ' • One-time download, cached for future visits'}
-          </p>
+          {modelLoadingState.value.progress >= 100 && modelLoadingState.value.isLoading ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.75rem',
+                marginBottom: '0.5rem',
+              }}
+            >
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  border: '3px solid rgba(139, 92, 246, 0.3)',
+                  borderTopColor: '#8b5cf6',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                Starting up model engine...
+              </p>
+            </div>
+          ) : (
+            <>
+              <ProgressBar progress={modelLoadingState.value.progress} />
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                {modelLoadingState.value.progress}% complete
+                {modelLoadingState.value.progress < 100 &&
+                  ' • One-time download, cached for future visits'}
+              </p>
+            </>
+          )}
         </>
       )}
     </div>

@@ -45,6 +45,7 @@ export function SessionControls({
         style={{
           opacity: modelLoadingState.value.isLoaded ? 1 : 0.5,
           cursor: modelLoadingState.value.isLoaded ? 'pointer' : 'not-allowed',
+          marginBottom: statusMsg.value ? '2rem' : '4rem',
         }}
       >
         {modelLoadingState.value.isLoaded ? 'Start' : 'Loading Model...'}
@@ -52,7 +53,7 @@ export function SessionControls({
       {statusMsg.value && (
         <p
           className="status-badge"
-          style={{ marginTop: '2rem', animation: 'fadeIn 0.3s ease-out' }}
+          style={{ marginTop: '2rem', marginBottom: '4rem', animation: 'fadeIn 0.3s ease-out' }}
         >
           {statusMsg.value}
         </p>
