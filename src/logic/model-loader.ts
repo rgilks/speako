@@ -64,53 +64,74 @@ export class ModelSingleton {
       this.instance = (async () => {
         // Check WebGPU availability and determine device
         const webGpuStatus = await checkWebGPU();
-        const device = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
+        let device: 'webgpu' | 'wasm' = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
         activeDevice = device;
         
         console.log(`Loading Whisper Model: ${modelId} with ${device.toUpperCase()}${device === 'wasm' ? ' (WebGPU unavailable)' : ''}...`);
         updateLoadingState({ isLoading: true, progress: 0, modelId });
 
         const fileProgress: Record<string, number> = {};
+        
+        const createProgressCallback = () => (data: any) => {
+          if (data.status === 'progress' && data.progress !== undefined) {
+            const fileName = data.file || 'model';
+            fileProgress[fileName] = data.progress || 0;
+            const entries = Object.entries(fileProgress);
+            
+            // 99% of download size is the main model file for accurate progress
+            let totalWeightedProgress = 0;
+            let totalWeight = 0;
+
+            for (const [file, progress] of entries) {
+                const isMainModel = file.includes("model.onnx") || file.includes("model.safetensors") || file.endsWith(".bin");
+                const weight = isMainModel ? 100 : 1;
+                
+                totalWeightedProgress += progress * weight;
+                totalWeight += weight;
+            }
+
+            const overallProgress = Math.round(totalWeightedProgress / Math.max(totalWeight, 1));
+            updateLoadingState({ progress: overallProgress });
+          } else if (data.status === 'initiate') {
+            updateLoadingState({ progress: Math.max(currentLoadingState.progress, 10) });
+          } else if (data.status === 'download') {
+            updateLoadingState({ progress: Math.max(currentLoadingState.progress, 20) });
+          } else if (data.status === 'done') {
+            updateLoadingState({ progress: Math.max(currentLoadingState.progress, 80) });
+          } else if (data.status === 'ready') {
+            updateLoadingState({ progress: 95 });
+          }
+          
+          progressCallback?.(data);
+        };
+
+        // Try loading with selected device, fallback to WASM if WebGPU fails
+        const loadWithDevice = async (selectedDevice: 'webgpu' | 'wasm') => {
+          return await pipeline('automatic-speech-recognition', modelId, {
+            progress_callback: createProgressCallback(),
+            device: selectedDevice,
+            dtype: selectedDevice === 'webgpu' ? 'fp32' : 'q8',
+          });
+        };
 
         try {
-          const model = await pipeline('automatic-speech-recognition', modelId, {
-            progress_callback: (data: any) => {
-              if (data.status === 'progress' && data.progress !== undefined) {
-                const fileName = data.file || 'model';
-                fileProgress[fileName] = data.progress || 0;
-                const entries = Object.entries(fileProgress);
-                
-                // 99% of download size is the main model file for accurate progress
-                let totalWeightedProgress = 0;
-                let totalWeight = 0;
-
-                for (const [file, progress] of entries) {
-                    const isMainModel = file.includes("model.onnx") || file.includes("model.safetensors") || file.endsWith(".bin");
-                    const weight = isMainModel ? 100 : 1;
-                    
-                    totalWeightedProgress += progress * weight;
-                    totalWeight += weight;
-                }
-
-                const overallProgress = Math.round(totalWeightedProgress / Math.max(totalWeight, 1));
-                updateLoadingState({ progress: overallProgress });
-              } else if (data.status === 'initiate') {
-                updateLoadingState({ progress: Math.max(currentLoadingState.progress, 10) });
-              } else if (data.status === 'download') {
-                updateLoadingState({ progress: Math.max(currentLoadingState.progress, 20) });
-              } else if (data.status === 'done') {
-                updateLoadingState({ progress: Math.max(currentLoadingState.progress, 80) });
-              } else if (data.status === 'ready') {
-                updateLoadingState({ progress: 95 });
-              }
-              
-              progressCallback?.(data);
-            },
-            device: device,
-            dtype: device === 'webgpu' ? 'fp32' : 'q8',  // Use quantized model for WASM performance
-          });
+          let model;
+          try {
+            model = await loadWithDevice(device);
+          } catch (webgpuError) {
+            // If WebGPU was attempted and failed, try WASM fallback
+            if (device === 'webgpu') {
+              console.warn(`WebGPU failed, falling back to WASM:`, webgpuError);
+              device = 'wasm';
+              activeDevice = 'wasm';
+              updateLoadingState({ progress: 0 }); // Reset progress for retry
+              model = await loadWithDevice('wasm');
+            } else {
+              throw webgpuError;
+            }
+          }
           
-          console.log(`Whisper model ${modelId} loaded successfully!`);
+          console.log(`Whisper model ${modelId} loaded successfully with ${device.toUpperCase()}!`);
           updateLoadingState({ isLoading: false, isLoaded: true, progress: 100, modelId });
           return model;
         } catch (error) {

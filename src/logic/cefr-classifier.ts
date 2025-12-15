@@ -39,15 +39,30 @@ export async function loadCEFRClassifier(): Promise<void> {
 
     // Check WebGPU availability and determine device
     const webGpuStatus = await checkWebGPU();
-    const device = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
+    let device: 'webgpu' | 'wasm' = webGpuStatus.isAvailable ? 'webgpu' : 'wasm';
     
     console.log(`Loading CEFR Classifier with ${device.toUpperCase()}${device === 'wasm' ? ' (WebGPU unavailable)' : ''}...`);
 
-    classifier = await pipeline('text-classification', DEFAULT_MODEL, {
-      device: device,
-    });
+    const loadWithDevice = async (selectedDevice: 'webgpu' | 'wasm') => {
+      return await pipeline('text-classification', DEFAULT_MODEL, {
+        device: selectedDevice,
+      });
+    };
+
+    try {
+      classifier = await loadWithDevice(device);
+    } catch (webgpuError) {
+      // If WebGPU was attempted and failed, try WASM fallback
+      if (device === 'webgpu') {
+        console.warn(`WebGPU failed for CEFR classifier, falling back to WASM:`, webgpuError);
+        device = 'wasm';
+        classifier = await loadWithDevice('wasm');
+      } else {
+        throw webgpuError;
+      }
+    }
     
-    console.log('CEFR Classifier loaded successfully');
+    console.log(`CEFR Classifier loaded successfully with ${device.toUpperCase()}`);
   } catch (err: any) {
     console.error('Failed to load CEFR classifier:', err);
     loadError = err.message || String(err);
