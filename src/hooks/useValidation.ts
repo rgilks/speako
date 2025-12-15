@@ -7,7 +7,6 @@ import { loadCEFRClassifier, isCEFRClassifierReady } from '../logic/cefr-classif
 import { ValidationResult, DEFAULT_WHISPER_MODEL, STMEntry } from '../types/validation';
 import { parseSTM, calculateWER, shuffleArray } from '../logic/validation-utils';
 
-// Constants
 const DEFAULT_FILE_LIMIT = 10;
 const AUDIO_SAMPLE_RATE = 16000;
 const AUDIO_CHANNELS = 1;

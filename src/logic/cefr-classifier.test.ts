@@ -1,7 +1,3 @@
-/**
- * Tests for CEFR Classifier
- */
-
 import { describe, it, expect } from 'vitest';
 import {
   estimateCEFRHeuristic,
@@ -50,7 +46,6 @@ describe('cefr-classifier', () => {
 
   describe('isCEFRClassifierReady', () => {
     it('returns false when classifier not loaded', () => {
-      // Initially the classifier is not loaded
       expect(isCEFRClassifierReady()).toBe(false);
     });
   });

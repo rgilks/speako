@@ -9,7 +9,6 @@ interface AudioShortcutsOptions {
   playbackRate: number;
 }
 
-// Constants
 const KEY_CODES = {
   SPACE: 'Space',
   ARROW_LEFT: 'ArrowLeft',

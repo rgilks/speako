@@ -33,7 +33,6 @@ interface UseAudioPlaybackReturn {
   skipBackward: () => void;
 }
 
-// Constants
 const SKIP_SECONDS = 5;
 const WAVEFORM_HEIGHT = 128;
 const WAVEFORM_COLORS = {
@@ -180,7 +179,6 @@ export function useAudioPlayback({
   const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
   const currentWordIndexRef = useRef<number | null>(null);
 
-  // Find current word based on time
   const findCurrentWordIndex = useCallback(
     (time: number): number | null => {
       for (let i = 0; i < words.length; i++) {
@@ -193,7 +191,6 @@ export function useAudioPlayback({
     [words]
   );
 
-  // Highlight active word
   const updateActiveWord = useCallback((index: number | null) => {
     wordRegions.current.forEach((region) => {
       const regionWithElement = region as { element?: HTMLElement };
@@ -214,7 +211,6 @@ export function useAudioPlayback({
     setCurrentWordIndex(index);
   }, []);
 
-  // Initialize WaveSurfer
   useEffect(() => {
     if (!containerRef.current || !audioBlob) return;
 

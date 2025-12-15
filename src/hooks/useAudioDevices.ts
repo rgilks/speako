@@ -53,7 +53,6 @@ export function useAudioDevices(
   const onDeviceChangeRef = useRef(onDeviceChange);
   const selectedDeviceIdRef = useRef(selectedDeviceId);
 
-  // Keep refs in sync
   useEffect(() => {
     onDeviceChangeRef.current = onDeviceChange;
     selectedDeviceIdRef.current = selectedDeviceId;
@@ -81,7 +80,6 @@ export function useAudioDevices(
 
     loadDevices();
 
-    // Listen for device changes (plug/unplug)
     navigator.mediaDevices.addEventListener('devicechange', loadDevices);
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', loadDevices);

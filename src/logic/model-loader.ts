@@ -20,7 +20,6 @@ export function getActiveDevice(): 'webgpu' | 'wasm' {
   return activeDevice;
 }
 
-// Model loading state
 export interface ModelLoadingState {
   isLoading: boolean;
   isLoaded: boolean;

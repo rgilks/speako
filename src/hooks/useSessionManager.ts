@@ -28,7 +28,6 @@ export function useSessionManager() {
   const selectedDeviceId = useSignal<string>('');
   const webGpuStatus = useSignal<{ isAvailable: boolean; message?: string } | null>(null);
 
-  // Check WebGPU support on mount
   useEffect(() => {
     checkWebGPU().then((status) => {
       webGpuStatus.value = status;
@@ -96,8 +95,6 @@ export function useSessionManager() {
 
       statusMsg.value = 'Speak now...';
 
-      // Start loading CEFR classifier in background (non-blocking)
-      // This way the model is ready by the time user finishes speaking
       if (!isCEFRClassifierReady()) {
         loadCEFRClassifier()
           .then(() => console.log('[SessionManager] CEFR classifier loaded (background)'))
@@ -164,7 +161,6 @@ export function useSessionManager() {
     try {
       console.log('[SessionManager] Calculating metrics...');
 
-      // Load CEFR classifier if not ready (first use)
       if (!isCEFRClassifierReady()) {
         try {
           statusMsg.value = 'Loading CEFR model...';

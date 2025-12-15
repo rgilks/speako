@@ -7,7 +7,6 @@ interface UseMicrophoneAnalyserResult {
   getLevel: () => number;
 }
 
-// Constants
 const ANALYSER_CONFIG = {
   fftSize: 512,
   smoothingTimeConstant: 0.3,
@@ -78,7 +77,6 @@ export function useMicrophoneAnalyser(deviceId: string): UseMicrophoneAnalyserRe
 
     async function setupAudio() {
       try {
-        // Clean up previous resources
         cleanupStream(streamRef.current);
         await cleanupAudioContext(audioContextRef.current);
 
