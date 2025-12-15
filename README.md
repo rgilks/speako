@@ -42,6 +42,10 @@ Speako is a **pure frontend application** with **no backend server**.
 
 See [AGENTS.md](./AGENTS.md) for coding standards and agent instructions.
 
+## Machine Learning
+
+For information on training the CEFR classifier, see [ml/README.md](ml/README.md).
+
 ## Running Locally
 
 ```bash

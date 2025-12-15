@@ -1,7 +1,7 @@
 /**
  * CEFR Classifier using transformers.js
  *
- * Loads a fine-tuned MiniLM model for CEFR level prediction.
+ * Loads a fine-tuned DeBERTa model for CEFR level prediction.
  * Model runs entirely in the browser via WebGPU/WASM.
  */
 

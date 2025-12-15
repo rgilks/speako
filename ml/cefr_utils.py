@@ -1,11 +1,58 @@
+import re
+import os
+import random
+import pandas as pd
+from typing import List, Dict, Any, Optional
 
 LABEL2ID = {"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5}
 ID2LABEL = {v: k for k, v in LABEL2ID.items()}
 
-def parse_stm_file(content: str) -> list:
-    """Parse STM file format with CEFR labels."""
-    import re
+def augment_text_with_noise(text: str, noise_prob: float = 0.1) -> str:
+    """
+    Simulate ASR errors:
+    1. Character swaps (typos)
+    2. Character deletions (swallowed sounds)
+    3. Word deletions (missed words)
+    """
+    if not text: return text
     
+    # Don't augment everything, preserve some clean structure
+    if random.random() > 0.8: 
+        return text
+
+    words = text.split()
+    new_words = []
+    
+    for word in words:
+        r = random.random()
+        
+        # 3% chance to drop short words (ASR skipping)
+        if len(word) < 4 and r < 0.03:
+            continue
+            
+        # 5% chance to swap characters (Typos)
+        if len(word) > 3 and r < 0.08:
+            chars = list(word)
+            if len(chars) > 1:
+                idx = random.randint(0, len(chars) - 2)
+                chars[idx], chars[idx+1] = chars[idx+1], chars[idx]
+                new_words.append("".join(chars))
+                continue
+                
+        # 3% chance to delete a valid character (Swallowed sound)
+        if len(word) > 4 and r < 0.11:
+             chars = list(word)
+             idx = random.randint(1, len(chars) - 2) # Don't delete start/end
+             del chars[idx]
+             new_words.append("".join(chars))
+             continue
+             
+        new_words.append(word)
+        
+    return " ".join(new_words)
+
+def parse_stm_file(content: str) -> List[Dict[str, Any]]:
+    """Parse STM file format with CEFR labels."""
     entries = []
     for line in content.split('\n'):
         line = line.strip()
@@ -42,9 +89,8 @@ def parse_stm_file(content: str) -> list:
     return entries
 
 
-def chunk_text(text: str, min_words=5, max_words=50) -> list:
+def chunk_text(text: str, min_words: int = 5, max_words: int = 50) -> List[str]:
     """Split long text into sentence-like chunks to simulate speech transcripts."""
-    import re
     # Split by sentence endings, keeping delimiters
     chunks = re.split(r'(?<=[.!?])\s+', text)
     valid_chunks = []
@@ -73,11 +119,8 @@ def chunk_text(text: str, min_words=5, max_words=50) -> list:
     return [c for c in valid_chunks if len(c.split()) >= min_words]
 
 
-def parse_wi_corpus(tsv_path: str) -> list:
+def parse_wi_corpus(tsv_path: str) -> List[Dict[str, Any]]:
     """Parse Write & Improve Corpus TSV and chunk essays."""
-    import pandas as pd
-    import os
-    
     if not os.path.exists(tsv_path):
         print(f"⚠️ W&I corpus file not found: {tsv_path}")
         return []

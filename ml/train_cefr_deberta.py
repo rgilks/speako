@@ -32,56 +32,9 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 # Volume to persist model artifacts
 volume = modal.Volume.from_name("cefr-models", create_if_missing=True)
 
-LABEL2ID = {"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5}
-ID2LABEL = {v: k for k, v in LABEL2ID.items()}
 
-# -----------------------------------------------------------------------------
-# NOISE AUGMENTATION UTILS
-# -----------------------------------------------------------------------------
 
-def augment_text_with_noise(text: str, noise_prob: float = 0.1) -> str:
-    """
-    Simulate ASR errors:
-    1. Character swaps (typos)
-    2. Character deletions (swallowed sounds)
-    3. Word deletions (missed words)
-    """
-    if not text: return text
-    
-    # Don't augment everything, preserve some clean structure
-    if random.random() > 0.8: 
-        return text
 
-    words = text.split()
-    new_words = []
-    
-    for word in words:
-        r = random.random()
-        
-        # 3% chance to drop short words (ASR skipping)
-        if len(word) < 4 and r < 0.03:
-            continue
-            
-        # 5% chance to swap characters (Typos)
-        if len(word) > 3 and r < 0.08:
-            chars = list(word)
-            if len(chars) > 1:
-                idx = random.randint(0, len(chars) - 2)
-                chars[idx], chars[idx+1] = chars[idx+1], chars[idx]
-                new_words.append("".join(chars))
-                continue
-                
-        # 3% chance to delete a valid character (Swallowed sound)
-        if len(word) > 4 and r < 0.11:
-             chars = list(word)
-             idx = random.randint(1, len(chars) - 2) # Don't delete start/end
-             del chars[idx]
-             new_words.append("".join(chars))
-             continue
-             
-        new_words.append(word)
-        
-    return " ".join(new_words)
 
 # -----------------------------------------------------------------------------
 # CORE LOGIC
@@ -90,7 +43,7 @@ def augment_text_with_noise(text: str, noise_prob: float = 0.1) -> str:
 # Mount local data
 training_image = (
     image
-    .add_local_dir("dist/test-data/reference-materials/stms", remote_path="/stm-data")
+    .add_local_dir("test-data/reference-materials/stms", remote_path="/stm-data")
     .add_local_file("ml/cefr_utils.py", remote_path="/root/cefr_utils.py") 
 )
 
@@ -124,7 +77,7 @@ def train_deberta(
     )
     from datasets import Dataset, concatenate_datasets
     import evaluate
-    from cefr_utils import parse_stm_file, parse_wi_corpus, chunk_text
+    from cefr_utils import parse_stm_file, parse_wi_corpus, chunk_text, LABEL2ID, ID2LABEL, augment_text_with_noise
     from sklearn.metrics import classification_report
     
     MODEL_NAME = "microsoft/deberta-v3-small"
@@ -281,3 +234,8 @@ def train_deberta(
         print(f"⚠️ Validation failed (but model is saved): {e}")
     
     print("🏁 Script Completed.")
+
+@app.local_entrypoint()
+def main():
+    """Run the training remotely."""
+    train_deberta.remote()

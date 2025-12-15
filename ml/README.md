@@ -1,6 +1,6 @@
 # CEFR Classifier Training
 
-Fine-tune a DistilBERT model for CEFR level classification using Modal cloud GPUs.
+Fine-tune a DeBERTa model for CEFR level classification using Modal cloud GPUs.
 
 **Published Model:** [`robg/speako-cefr`](https://huggingface.co/robg/speako-cefr)
 
@@ -11,39 +11,24 @@ Fine-tune a DistilBERT model for CEFR level classification using Modal cloud GPU
 pip install modal
 modal token new
 
-# 2. Quick test (1000 samples, ~2 min)
-modal run ml/train_cefr_minilm.py --quick-test
-
-# 3. Full training (~45 min)
-modal run ml/train_cefr_minilm.py
-
-# 4. Convert to ONNX
-modal run ml/train_cefr_minilm.py --convert
-
-# 5. Download locally
-modal run ml/train_cefr_minilm.py --download
-
-# 6. Publish to HuggingFace
-huggingface-cli login
-huggingface-cli upload your-username/speako-cefr ./cefr-minilm-onnx
-
-# 7. Update src/logic/cefr-classifier.ts
-# const DEFAULT_MODEL = 'your-username/speako-cefr';
+# 2. Start Training
+modal run ml/train_cefr_deberta.py
 ```
 
-## Commands
+## Model Details
 
-| Command | Description | Time |
-|---------|-------------|------|
-| `--quick-test` | Test with 1000 samples, 2 epochs | ~2 min |
-| (no flags) | Full training, 5 epochs | ~45 min |
-| `--convert` | Convert to ONNX + quantize | ~2 min |
-| `--download` | Download ONNX model locally | ~1 min |
-| `--use-hf` | Use HuggingFace UniversalCEFR dataset | - |
+| Property | Value |
+|----------|-------|
+| Base Model | `microsoft/deberta-v3-small` |
+| HuggingFace ID | `robg/speako-cefr-deberta` |
+| ONNX Size | ~90MB (quantized) |
+| Labels | A1, A2, B1, B2, C1, C2 |
+| Max Length | 256 tokens |
+| Augmentation | Noise (Typos, Deletions) |
 
 ## Training Data
 
-Uses local STM files from `dist/test-data/reference-materials/stms/`:
+Uses local STM files from `test-data/reference-materials/stms/`:
 
 | File | Purpose | Samples |
 |------|---------|---------|
@@ -58,15 +43,7 @@ To include the Cambridge Write & Improve Corpus in training:
 2. Ensure the path is accessible to the training context.
 
 
-## Model Details
 
-| Property | Value |
-|----------|-------|
-| Base Model | `distilbert-base-uncased` |
-| HuggingFace ID | `robg/speako-cefr` |
-| ONNX Size | ~67MB (quantized) |
-| Labels | A1, A2, B1, B2, C1, C2 |
-| Max Length | 256 tokens |
 
 ## Browser Integration
 
@@ -87,5 +64,5 @@ The model is automatically loaded when users start recording or run validation:
 
 **Training fails?**
 - Check Modal logs: `modal app logs`
-- Verify STM files exist: `ls dist/test-data/reference-materials/stms/`
+- Verify STM files exist: `ls test-data/reference-materials/stms/`
 - If using W&I corpus, verify `WI_CORPUS_PATH` is set and the file exists.
