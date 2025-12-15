@@ -24,7 +24,9 @@ export function SessionControls({
 }: SessionControlsProps) {
   return (
     <>
-      <h1 className="heading-xl">Speako</h1>
+      <h1 className="heading-xl" style={{ marginTop: '1rem' }}>
+        Speako
+      </h1>
       <p className="text-muted" style={{ marginBottom: '2rem', fontSize: '1.1rem' }}>
         Real-time local AI speech analysis.
       </p>

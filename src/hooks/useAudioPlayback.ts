@@ -84,7 +84,7 @@ function setupWaveSurferEvents(
   setDuration: (duration: string) => void,
   setCurrentTime: (time: string) => void,
   findCurrentWordIndex: (time: number) => number | null,
-  currentWordIndex: number | null,
+  currentWordIndexRef: { current: number | null },
   updateActiveWord: (index: number | null) => void
 ) {
   wavesurfer.on('play', () => setIsPlaying(true));
@@ -98,7 +98,7 @@ function setupWaveSurferEvents(
   wavesurfer.on('timeupdate', (t) => {
     setCurrentTime(formatTime(t));
     const wordIdx = findCurrentWordIndex(t);
-    if (wordIdx !== currentWordIndex) {
+    if (wordIdx !== currentWordIndexRef.current) {
       updateActiveWord(wordIdx);
     }
   });
@@ -179,6 +179,7 @@ export function useAudioPlayback({
   const [currentTime, setCurrentTime] = useState('0:00');
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
+  const currentWordIndexRef = useRef<number | null>(null);
 
   // Find current word based on time
   const findCurrentWordIndex = useCallback(
@@ -210,6 +211,7 @@ export function useAudioPlayback({
       }
     }
 
+    currentWordIndexRef.current = index;
     setCurrentWordIndex(index);
   }, []);
 
@@ -218,6 +220,7 @@ export function useAudioPlayback({
     if (!containerRef.current || !audioBlob) return;
 
     setIsLoading(true);
+    currentWordIndexRef.current = null;
     const audioUrl = URL.createObjectURL(audioBlob);
 
     wavesurfer.current = WaveSurfer.create(createWaveSurferConfig(containerRef.current, audioUrl));
@@ -228,7 +231,7 @@ export function useAudioPlayback({
       setDuration,
       setCurrentTime,
       findCurrentWordIndex,
-      currentWordIndex,
+      currentWordIndexRef,
       updateActiveWord
     );
 
@@ -251,7 +254,7 @@ export function useAudioPlayback({
       wavesurfer.current?.destroy();
       URL.revokeObjectURL(audioUrl);
     };
-  }, [audioBlob, words, onTooltipChange, findCurrentWordIndex, currentWordIndex, updateActiveWord]);
+  }, [audioBlob, words, onTooltipChange, findCurrentWordIndex, updateActiveWord]);
 
   const togglePlay = useCallback(() => wavesurfer.current?.playPause(), []);
 

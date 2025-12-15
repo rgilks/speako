@@ -47,7 +47,13 @@ export function SessionResults({
   return (
     <div
       className="card-glass animate-fade-in mx-auto"
-      style={{ width: '100%', maxWidth: '900px', textAlign: 'left' }}
+      style={{
+        width: '100%',
+        maxWidth: '900px',
+        textAlign: 'left',
+        marginTop: '1rem',
+        marginBottom: '1rem',
+      }}
     >
       <SessionResultsHeader metrics={metrics} lastDuration={lastDuration} />
 

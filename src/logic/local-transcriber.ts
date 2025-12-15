@@ -114,14 +114,58 @@ export class LocalTranscriber implements ITranscriber {
       if (typeof output === 'object') {
         text = output.text?.trim() || '';
         if (output.chunks) {
-          console.log('Fluency Data (Chunks):', output.chunks);
+          console.log(
+            '[LocalTranscriber] Chunks structure:',
+            JSON.stringify(output.chunks, null, 2)
+          );
           // Extract words from chunks
-          words = output.chunks.map((c: any) => ({
-            word: c.text.trim(),
-            start: c.timestamp?.[0] ?? 0,
-            end: c.timestamp?.[1] ?? 0,
-            score: c.score || 0.99, // Fallback confidence if not provided
-          }));
+          // With return_timestamps: 'word', transformers.js should return word-level chunks
+          // but the structure may vary. Let's handle both cases:
+          words = output.chunks
+            .flatMap((c: any) => {
+              const chunkText = (c.text || '').trim();
+              if (!chunkText) return [];
+
+              // Check if this chunk represents a single word or multiple words
+              const wordsInText = chunkText.split(/\s+/).filter((w: string) => w.length > 0);
+
+              if (wordsInText.length === 1) {
+                // Single word chunk - this is what we want with return_timestamps: 'word'
+                return [
+                  {
+                    word: chunkText,
+                    start: c.timestamp?.[0] ?? 0,
+                    end: c.timestamp?.[1] ?? 0,
+                    score: c.score || 0.99,
+                  },
+                ];
+              } else {
+                // Multiple words in one chunk - this shouldn't happen with return_timestamps: 'word'
+                // but if it does, we need to split them
+                // Note: This is approximate - we don't have word-level timestamps in this case
+                const start = c.timestamp?.[0] ?? 0;
+                const end = c.timestamp?.[1] ?? 0;
+                const duration = end - start;
+                const wordDuration = duration / wordsInText.length;
+
+                console.warn(
+                  `[LocalTranscriber] Chunk contains ${wordsInText.length} words, ` +
+                    `splitting evenly. Word-level timestamps may be inaccurate.`
+                );
+
+                return wordsInText.map((word: string, idx: number) => ({
+                  word: word.trim(),
+                  start: start + wordDuration * idx,
+                  end: start + wordDuration * (idx + 1),
+                  score: c.score || 0.99,
+                }));
+              }
+            })
+            .filter((w: any) => w.word.length > 0);
+
+          console.log(
+            `[LocalTranscriber] Extracted ${words.length} words from ${output.chunks.length} chunks`
+          );
         }
       } else if (Array.isArray(output) && output[0] && output[0].text) {
         text = output[0].text.trim();
