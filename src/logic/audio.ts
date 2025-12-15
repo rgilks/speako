@@ -1,3 +1,5 @@
+import { calculateAudioLevel } from './audio-analysis';
+
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
@@ -112,23 +114,7 @@ export class AudioRecorder {
    */
   getAudioLevel(): number {
     if (!this.analyser || !this.dataArray) return 0;
-
-    // Use time domain data (waveform) for more reliable level detection
-    this.analyser.getByteTimeDomainData(this.dataArray);
-
-    // Calculate peak level from waveform (values centered around 128)
-    let peak = 0;
-    for (let i = 0; i < this.dataArray.length; i++) {
-      const amplitude = Math.abs(this.dataArray[i] - 128);
-      if (amplitude > peak) {
-        peak = amplitude;
-      }
-    }
-
-    // Normalize to 0-1 (max deviation from center is 128)
-    const level = peak / 128;
-
-    return level;
+    return calculateAudioLevel(this.analyser, this.dataArray);
   }
 
   async stop(): Promise<Blob> {

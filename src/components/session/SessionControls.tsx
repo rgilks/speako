@@ -1,5 +1,6 @@
 import { Signal } from '@preact/signals';
 import { DevicePicker } from '../DevicePicker';
+import { MicLevelMeter } from '../MicLevelMeter';
 import { ModelLoadingState } from '../../logic/local-transcriber';
 
 interface SessionControlsProps {
@@ -193,6 +194,9 @@ export function SessionControls({
               selectedDeviceId.value = id;
             }}
           />
+
+          {/* Mic Level Meter */}
+          {selectedDeviceId.value && <MicLevelMeter deviceId={selectedDeviceId.value} />}
 
           <div
             style={{

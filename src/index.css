@@ -431,6 +431,37 @@ button {
   color: var(--text-primary);
 }
 
+/* Mic Level Meter */
+.mic-level-meter {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mic-level-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.mic-level-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.mic-level-hint {
+  margin-top: var(--spacing-sm);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
 /* Results Dashboard (Pure CSS) */
 .dashboard-header {
   display: flex;
@@ -631,17 +662,27 @@ button {
 /* Header Controls */
 .av-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
   padding-bottom: var(--spacing-md);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 400px) {
+  .av-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
 }
 
 .av-controls {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .av-btn-play {
@@ -705,11 +746,16 @@ button {
 
 .av-speed-control {
   display: flex;
-  gap: 4px;
-  margin-left: var(--spacing-sm);
+  gap: 2px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-full);
-  padding: 4px;
+  padding: 3px;
+}
+
+@media (min-width: 400px) {
+  .av-speed-control {
+    margin-left: var(--spacing-sm);
+  }
 }
 
 .av-speed-btn {
