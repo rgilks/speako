@@ -19,7 +19,6 @@ const TRANSCRIPTION_CONFIG = {
   chunk_length_s: 30,
   stride_length_s: 5,
   no_speech_threshold: 0.1,
-  language: 'en' as const,
   task: 'transcribe' as const,
 } as const;
 

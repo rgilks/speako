@@ -1,6 +1,5 @@
 import { useSignal } from '@preact/signals';
 import { useEffect, useRef } from 'preact/hooks';
-// Adjust imports to valid relative paths
 import {
   LocalTranscriber,
   subscribeToLoadingState,
@@ -11,6 +10,7 @@ import { loadCEFRClassifier, isCEFRClassifierReady } from '../logic/cefr-classif
 import { checkWebGPU } from '../logic/webgpu-check';
 import { TranscriptionResult } from '../logic/transcriber';
 import { GrammarChecker, AnalysisResult } from '../logic/grammar-checker';
+import { detectEnglish } from '../logic/language-detector';
 
 // Transcribers can be singletons for this session manager
 const localTranscriber = new LocalTranscriber();
@@ -150,13 +150,26 @@ export function useSessionManager() {
       } else {
         transcript.value = { text: '[No speech detected]', words: [] };
       }
-      metrics.value = null; // Clear metrics
+      metrics.value = null;
       statusMsg.value = 'Transcription returned no text. Try speaking louder.';
       view.value = 'results';
       return;
     }
 
     transcript.value = result;
+
+    const detectionResult = detectEnglish(result.text);
+
+    if (!detectionResult.isLikelyEnglish) {
+      console.warn(
+        `[SessionManager] Non-English speech detected (confidence: ${detectionResult.confidence.toFixed(2)})`
+      );
+      statusMsg.value = 'Non-English speech detected. Please speak English for accurate scoring.';
+      metrics.value = null;
+      analysis.value = null;
+      view.value = 'results';
+      return;
+    }
 
     try {
       console.log('[SessionManager] Calculating metrics...');
