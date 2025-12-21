@@ -2,6 +2,8 @@
 
 **Browser-based AI Speaking Practice**
 
+**[▶ Try the Live Demo](https://speako-web.pages.dev/)**
+
 Speako is a local-first application designed for practicing exam-style English speaking tests. It prioritizes user privacy, zero latency, and a premium user experience by running powerful AI models directly in your browser.
 
 ## Features
@@ -49,6 +51,11 @@ speako/
 ├── scripts/              # Helper scripts
 └── public/               # Static assets and local models
 ```
+
+## Prerequisites
+
+- **Node.js 20+** (check with `node -v`)
+- **Python 3.11+** with [uv](https://docs.astral.sh/uv/) for ML training (optional)
 
 ## Running Locally
 
@@ -144,7 +151,7 @@ Results are saved to `validation-results.json`.
 
 ## Machine Learning
 
-For information on training the CEFR classifier, see [ml/README.md](ml/README.md).
+For information on training the CEFR classifier, see [docs/ml.md](docs/ml.md).
 
 > [!NOTE]
 > The CEFR model is trained on [UniversalCEFR](https://huggingface.co/datasets/lksenel/UniversalCEFR) (CC-BY-NC-4.0) to ensure license compliance. The S&I Corpus is used for validation only.
