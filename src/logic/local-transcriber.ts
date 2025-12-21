@@ -1,6 +1,6 @@
 import { ITranscriber, TranscriptionResult, TranscriptionWord } from './transcriber';
 import { AudioRecorder } from './audio';
-import { ModelSingleton } from './model-loader';
+import { ModelSingleton, calculateWeightedProgress } from './model-loader';
 
 export {
   subscribeToLoadingState,
@@ -10,8 +10,7 @@ export {
 export type { ModelLoadingState } from './model-loader';
 
 const MODEL_ID = 'Xenova/whisper-base';
-const MAIN_MODEL_WEIGHT = 100;
-const OTHER_FILE_WEIGHT = 1;
+
 const DEFAULT_WORD_SCORE = 0.99;
 
 const TRANSCRIPTION_CONFIG = {
@@ -37,27 +36,6 @@ interface WhisperChunk {
 interface WhisperOutput {
   text?: string;
   chunks?: WhisperChunk[];
-}
-
-function isMainModelFile(fileName: string): boolean {
-  return (
-    fileName.includes('model.onnx') ||
-    fileName.includes('model.safetensors') ||
-    fileName.endsWith('.bin')
-  );
-}
-
-function calculateWeightedProgress(fileProgress: Record<string, number>): number {
-  let totalWeightedProgress = 0;
-  let totalWeight = 0;
-
-  for (const [file, progress] of Object.entries(fileProgress)) {
-    const weight = isMainModelFile(file) ? MAIN_MODEL_WEIGHT : OTHER_FILE_WEIGHT;
-    totalWeightedProgress += progress * weight;
-    totalWeight += weight;
-  }
-
-  return Math.round(totalWeightedProgress / Math.max(totalWeight, 1));
 }
 
 function extractWordsFromChunks(chunks: WhisperChunk[]): TranscriptionWord[] {

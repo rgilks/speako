@@ -13,9 +13,6 @@ modal token new
 
 # 2. Start Training
 modal run ml/train_cefr_deberta.py
-
-# 3. Retrieve Trained Model (Optional)
-npx tsx scripts/download-modal-model.ts
 ```
 
 ## Development

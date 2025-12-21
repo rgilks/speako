@@ -42,7 +42,7 @@ function updateLoadingState(partial: Partial<ModelLoadingState>): void {
   loadingStateCallbacks.forEach((cb) => cb(currentLoadingState));
 }
 
-function isMainModelFile(fileName: string): boolean {
+export function isMainModelFile(fileName: string): boolean {
   return (
     fileName.includes('model.onnx') ||
     fileName.includes('model.safetensors') ||
@@ -50,7 +50,7 @@ function isMainModelFile(fileName: string): boolean {
   );
 }
 
-function calculateWeightedProgress(fileProgress: Record<string, number>): number {
+export function calculateWeightedProgress(fileProgress: Record<string, number>): number {
   let totalWeightedProgress = 0;
   let totalWeight = 0;
 
