@@ -7,6 +7,11 @@ echo "🔍 Running pre-commit checks..."
 echo "📘 Type checking..."
 npx tsc --noEmit
 
+# Lint Python files with ruff
+echo "🐍 Checking Python..."
+uvx ruff check ml/ --fix
+uvx ruff format ml/
+
 # Lint and format staged files
 echo "✨ Linting and formatting..."
 npx lint-staged

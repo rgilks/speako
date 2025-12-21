@@ -14,7 +14,8 @@ def augment_text_with_noise(text: str, noise_prob: float = 0.1) -> str:
     2. Character deletions (swallowed sounds)
     3. Word deletions (missed words)
     """
-    if not text: return text
+    if not text:
+        return text
     
     # Don't augment everything, preserve some clean structure
     if random.random() > 0.8: 
@@ -189,7 +190,7 @@ def load_universal_cefr(
     try:
         from datasets import load_dataset
     except ImportError:
-        print("⚠️ datasets library not installed. Run: pip install datasets")
+        print("⚠️ datasets library not installed. Run: uv pip install datasets")
         return []
     
     # Dataset configurations - will try to load ALL of these and combine

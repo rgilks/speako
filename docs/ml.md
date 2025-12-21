@@ -8,7 +8,7 @@ Fine-tune a DeBERTa model for CEFR level classification using [Modal](https://mo
 
 ```bash
 # 1. Install Modal CLI
-pip install modal
+uv pip install modal
 modal token new
 
 # 2. Start Training
@@ -17,6 +17,17 @@ modal run ml/train_cefr_deberta.py
 # 3. Retrieve Trained Model (Optional)
 npx tsx scripts/download-modal-model.ts
 ```
+
+## Development
+
+Python linting uses [ruff](https://docs.astral.sh/ruff/) via `uvx` (no installation required):
+
+```bash
+uvx ruff check ml/   # Lint
+uvx ruff format ml/  # Format
+```
+
+Ruff runs automatically in the pre-commit hook.
 
 ## Model Details
 

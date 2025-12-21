@@ -7,7 +7,6 @@ Usage:
 """
 
 import modal
-import random
 import numpy as np
 import os
 
@@ -62,8 +61,6 @@ def train_deberta(
     learning_rate: float = 2e-5,
     max_samples: int = 60000 # Capped for speed (60k is plenty for 44M params)
 ):
-    import os
-    import torch
     from transformers import (
         AutoTokenizer,
         AutoModelForSequenceClassification,
@@ -72,7 +69,7 @@ def train_deberta(
         DataCollatorWithPadding,
         EarlyStoppingCallback
     )
-    from datasets import Dataset, concatenate_datasets
+    from datasets import Dataset
     import evaluate
     from cefr_utils import parse_stm_file, load_universal_cefr, LABEL2ID, ID2LABEL, augment_text_with_noise
     from sklearn.metrics import classification_report
