@@ -2,7 +2,9 @@
 
 **Browser-based AI Speaking Practice**
 
-**[▶ Try the Live Demo](https://speako-web.pages.dev/)**
+**[▶ Try the Live Demo](https://speako.tre.systems/)**
+
+![Speako Application Screenshot](screenshot.png)
 
 Speako is a local-first application designed for practicing exam-style English speaking tests. It prioritizes user privacy, zero latency, and a premium user experience by running powerful AI models directly in your browser.
 
