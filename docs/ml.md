@@ -72,7 +72,7 @@ The CC-BY-NC-4.0 license explicitly allows creating derivative models for non-co
 
 [UniversalCEFR](https://huggingface.co/datasets/lksenel/UniversalCEFR) is a large-scale multilingual dataset with 500k+ CEFR-labeled texts.
 
-- **Paper**: [arXiv:2404.00813](https://arxiv.org/abs/2404.00813)
+- **Paper**: [arXiv:2506.01419](https://arxiv.org/abs/2506.01419)
 - **License**: CC-BY-NC-4.0 (allows derivative models)
 - **Languages**: 13 (filtered to English only)
 - **Levels**: A1–C2
