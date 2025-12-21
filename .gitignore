@@ -13,7 +13,6 @@ validation-results.json
 
 # Downloaded models
 public/models/
-cefr-minilm-onnx/
 
 # Python
 **/__pycache__/

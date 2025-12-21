@@ -2,6 +2,9 @@
   "name": "speako",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +17,6 @@
     "prepare": "husky",
     "prepare:data": "npx tsx scripts/prepare-validation-data.ts",
     "prepare:models": "npx tsx scripts/download-models.ts",
-    "cefr:install": "mkdir -p public/models/cefr-classifier && cp cefr-minilm-onnx/* public/models/cefr-classifier/ && cp public/models/cefr-classifier/model_quantized.onnx public/models/cefr-classifier/model.onnx && echo '✅ CEFR model installed to public/models/cefr-classifier'",
     "cefr:verify": "npx tsx scripts/verify-cefr.ts",
     "deps:update": "npx npm-check-updates -u",
     "deploy": "npm run build && rm -rf dist/models && npx wrangler pages deploy dist"

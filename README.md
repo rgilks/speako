@@ -81,7 +81,6 @@ Open [http://localhost:5173](http://localhost:5173).
 | `npm run format` | Format code with Prettier |
 | `npm run prepare:models` | Download models locally for offline testing |
 | `npm run prepare:data` | Convert corpus audio to WAV for validation |
-| `npm run cefr:install` | Install CEFR model from local training output |
 | `npm run cefr:verify` | Verify CEFR model is working |
 | `npm run deploy` | Build and deploy to Cloudflare Pages |
 
